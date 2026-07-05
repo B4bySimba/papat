@@ -112,8 +112,8 @@ export default function AreaChartCard({
             <YAxis tickLine={false} axisLine={false} tickMargin={8} />
             <ChartTooltip
               cursor={false}
-              content={(props: CustomTooltipProps) => (
-                <ChartTooltipContent {...props} hideIndicator hideLabel />
+              content={(props: any) => (
+                <ChartTooltipContent {...(props as CustomTooltipProps)} hideIndicator hideLabel />
               )}
             />
 

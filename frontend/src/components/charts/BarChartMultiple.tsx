@@ -100,8 +100,8 @@ export default function BarChartCard({
             />
             <ChartTooltip
               cursor={false}
-              content={(props: CustomTooltipProps) => (
-                <ChartTooltipContent {...props} hideIndicator hideLabel />
+              content={(props: any) => (
+                <ChartTooltipContent {...(props as CustomTooltipProps)} hideIndicator hideLabel />
               )}
             />
             {chartKeys.map((key) => (
