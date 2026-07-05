@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { DatabaseModule } from './database/database.module';
 import { HouseModule } from './house/house.module';
 import { LandlordModule } from './landlord/landlord.module';
 import { UnitModule } from './unit/unit.module';
@@ -15,7 +14,7 @@ import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
 
 @Module({
-  imports: [DatabaseModule, HouseModule, LandlordModule, UnitModule, TenantModule, MeterReadingModule, PaymentModule, CommonModule, UserModule, AuthModule],
+  imports: [HouseModule, LandlordModule, UnitModule, TenantModule, MeterReadingModule, PaymentModule, CommonModule, UserModule, AuthModule],
   controllers: [AppController, PingController],
   providers: [AppService, HashidService],
 })

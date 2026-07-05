@@ -1,5 +1,5 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { DatabaseService } from 'src/database/database.service';
+import prisma from 'lib/db';
 import { Prisma } from '@prisma/client';
 import { first, last } from 'rxjs';
 import { HashidService } from 'src/common/hashid/hashid.service';
@@ -32,12 +32,11 @@ export interface TenantLedgerEntry {
 @Injectable()
 export class PaymentService {
   constructor(
-    private readonly databaseService: DatabaseService,
     private readonly hashidService: HashidService,
   ) {}
 
   async getManagerLevelSummary() {
-    const houses = await this.databaseService.house.findMany({
+    const houses = await prisma.house.findMany({
       select: { id: true },
     });
 
@@ -135,7 +134,7 @@ export class PaymentService {
 
   async getHouseLevelSummary(houseId: number) {
     // 1. Get all active leases for this house
-    const leases = await this.databaseService.lease.findMany({
+    const leases = await prisma.lease.findMany({
       where: {
         houseId,
         status: 'ACTIVE',
@@ -241,7 +240,7 @@ export class PaymentService {
   }
 
   async getTenantLevelSummary(leaseCode: string) {
-    const lease = await this.databaseService.lease.findFirst({
+    const lease = await prisma.lease.findFirst({
       where: { code: leaseCode },
       include: {
         payment: true,
@@ -267,12 +266,12 @@ export class PaymentService {
       onEntryMeterReading,
     } = lease;
 
-    const meterReadings = await this.databaseService.meterReading.findMany({
+    const meterReadings = await prisma.meterReading.findMany({
       where: { unitId },
       orderBy: { readOn: 'asc' },
     });
 
-    const payments = await this.databaseService.payment.findMany({
+    const payments = await prisma.payment.findMany({
       where: { leaseId: lease.id },
       orderBy: { date: 'asc' },
     });
@@ -417,7 +416,7 @@ export class PaymentService {
     try {
       const leaseCode = (createPaymentDto.lease as any).connect.code;
 
-      const lease = await this.databaseService.lease.findFirst({
+      const lease = await prisma.lease.findFirst({
         where: { code: leaseCode, status: 'ACTIVE' },
         select: { id: true, tenantId: true, houseId: true, unitId: true },
       });
@@ -426,7 +425,7 @@ export class PaymentService {
         throw new HttpException('Lease not found.', HttpStatus.NOT_FOUND);
       }
 
-      return await this.databaseService.payment.create({
+      return await prisma.payment.create({
         data: {
           ...createPaymentDto,
           lease: { connect: { id: lease.id } }, // use ID after lookup
@@ -462,7 +461,7 @@ export class PaymentService {
 
   async create(createPaymentDto: Prisma.paymentCreateInput) {
     const leaseId = (createPaymentDto.lease as any).connect.id;
-    const lease = await this.databaseService.lease.findUnique({
+    const lease = await prisma.lease.findUnique({
       where: { id: leaseId },
       select: { id: true, tenantId: true, houseId: true, unitId: true },
     });
@@ -471,7 +470,7 @@ export class PaymentService {
     }
 
     // console.log(lease.houseId, lease.tenantId);
-    return this.databaseService.payment.create({
+    return prisma.payment.create({
       data: {
         ...createPaymentDto,
         tenant: { connect: { id: lease.tenantId } },
@@ -487,12 +486,12 @@ export class PaymentService {
   //     `${payload.TransTime.slice(0, 4)}-${payload.TransTime.slice(4, 6)}-${payload.TransTime.slice(6, 8)}T${payload.TransTime.slice(8, 10)}:${payload.TransTime.slice(10, 12)}:${payload.TransTime.slice(12, 14)}`,
   //   );
 
-  //   const lease = await this.databaseService.lease.findUnique({
+  //   const lease = await prisma.lease.findUnique({
   //     where: { code: payload.BillRefNumber },
   //     select: { id: true, tenantId: true, houseId: true, unitId: true },
   //   });
   //   if (!lease) {
-  //     return this.databaseService.payment.create({
+  //     return prisma.payment.create({
   //       data: {
   //         amount: parseFloat(payload.TransAmount),
   //         date: dateObj,
@@ -504,7 +503,7 @@ export class PaymentService {
   //       },
   //     });
   //   }
-  //   return this.databaseService.payment.create({
+  //   return prisma.payment.create({
   //     data: {
   //       lease: { connect: { id: lease.id } },
   //       tenant: { connect: { id: lease.tenantId } },
@@ -521,11 +520,11 @@ export class PaymentService {
   // }
 
   async findAll() {
-    return this.databaseService.payment.findMany({});
+    return prisma.payment.findMany({});
   }
 
   async getAll() {
-    const payments = await this.databaseService.payment.findMany({
+    const payments = await prisma.payment.findMany({
       orderBy: { date: 'desc' },
       select: {
         unit: {
@@ -591,7 +590,7 @@ export class PaymentService {
   }
 
   async recent() {
-    const payments = await this.databaseService.payment.findMany({
+    const payments = await prisma.payment.findMany({
       take: 5, // Limit to the latest 5
       orderBy: { date: 'desc' },
       select: {
@@ -654,7 +653,7 @@ export class PaymentService {
   }
 
   async getAllUnit(unitId: number) {
-    const payments = await this.databaseService.payment.findMany({
+    const payments = await prisma.payment.findMany({
       orderBy: { date: 'desc' },
       where: {
         unitId,
@@ -693,7 +692,7 @@ export class PaymentService {
   }
 
   async findAll2(houseId: number) {
-    const payment = await this.databaseService.payment.findMany({
+    const payment = await prisma.payment.findMany({
       take: 5,
       orderBy: { date: 'desc' },
       where: {
@@ -752,7 +751,7 @@ export class PaymentService {
   }
 
   async findAll3(leaseCode: string) {
-    const payment = await this.databaseService.payment.findMany({
+    const payment = await prisma.payment.findMany({
       take: 5,
       orderBy: { date: 'desc' },
       where: {
@@ -810,20 +809,20 @@ export class PaymentService {
   }
 
   async findOne(id: number) {
-    return this.databaseService.payment.findUnique({
+    return prisma.payment.findUnique({
       where: { id },
     });
   }
 
   async update(id: number, updatePaymentDto: Prisma.paymentUpdateInput) {
-    const payment = await this.databaseService.payment.findUnique({
+    const payment = await prisma.payment.findUnique({
       where: { id },
       select: { manualInput: true },
     });
 
     if (!payment?.manualInput) return null;
 
-    return this.databaseService.payment.update({
+    return prisma.payment.update({
       where: { id },
       data: {
         ...updatePaymentDto,
@@ -835,7 +834,7 @@ export class PaymentService {
   }
 
   async remove(id: number) {
-    return this.databaseService.payment.delete({
+    return prisma.payment.delete({
       where: { id },
     });
   }
@@ -844,7 +843,7 @@ export class PaymentService {
     const startDate = new Date(`${year}-01-01T00:00:00Z`);
     const endDate = new Date(`${year + 1}-01-01T00:00:00Z`);
 
-    const leases = await this.databaseService.lease.findMany({
+    const leases = await prisma.lease.findMany({
       where: { status: 'ACTIVE' },
       select: {
         id: true,
@@ -871,7 +870,7 @@ export class PaymentService {
 
     const leaseIds = leases.map((lease) => lease.id);
 
-    const readings = await this.databaseService.meterReading.findMany({
+    const readings = await prisma.meterReading.findMany({
       where: {
         leaseId: { in: leaseIds },
         readOn: { gte: startDate, lt: endDate },
@@ -879,7 +878,7 @@ export class PaymentService {
       orderBy: { readOn: 'asc' },
     });
 
-    const payments = await this.databaseService.payment.findMany({
+    const payments = await prisma.payment.findMany({
       where: {
         leaseId: { in: leaseIds },
         date: { gte: startDate, lt: endDate },
@@ -1060,7 +1059,7 @@ export class PaymentService {
   }
 
   async payments(houseId: number, year: number) {
-    const leases = await this.databaseService.lease.findMany({
+    const leases = await prisma.lease.findMany({
       where: {
         houseId,
         status: 'ACTIVE',
@@ -1091,7 +1090,7 @@ export class PaymentService {
     const startDate = new Date(`${year}-01-01T00:00:00Z`);
     const endDate = new Date(`${year + 1}-01-01T00:00:00Z`);
 
-    const payments = await this.databaseService.payment.findMany({
+    const payments = await prisma.payment.findMany({
       where: {
         leaseId: { in: leaseIds },
         date: { gte: startDate, lt: endDate },
@@ -1116,7 +1115,7 @@ export class PaymentService {
       });
     }
 
-    const meterReadings = await this.databaseService.meterReading.findMany({
+    const meterReadings = await prisma.meterReading.findMany({
       where: {
         leaseId: { in: leaseIds },
         readOn: { gte: startDate, lt: endDate },
@@ -1212,7 +1211,7 @@ export class PaymentService {
   }
 
   async getLeaseSummary(unitId: number, year: number) {
-    const lease = await this.databaseService.lease.findFirst({
+    const lease = await prisma.lease.findFirst({
       where: { unitId: unitId, status: 'ACTIVE' },
       select: {
         id: true,
@@ -1236,12 +1235,12 @@ export class PaymentService {
     const startDate = new Date(`${year}-01-01T00:00:00Z`);
     const endDate = new Date(`${year + 1}-01-01T00:00:00Z`);
 
-    const readings = await this.databaseService.meterReading.findMany({
+    const readings = await prisma.meterReading.findMany({
       where: { leaseId: lease.id, readOn: { gte: startDate, lt: endDate } },
       orderBy: { readOn: 'asc' },
     });
 
-    const payments = await this.databaseService.payment.findMany({
+    const payments = await prisma.payment.findMany({
       where: { leaseId: lease.id, date: { gte: startDate, lt: endDate } },
       orderBy: { date: 'asc' },
     });
@@ -1330,7 +1329,7 @@ export class PaymentService {
   }
 
   async getPaidYears(houseId: number) {
-    const earliestLease = await this.databaseService.lease.findFirst({
+    const earliestLease = await prisma.lease.findFirst({
       where: {
         houseId,
         status: 'ACTIVE',
@@ -1357,7 +1356,7 @@ export class PaymentService {
   }
 
   async getPaidUnitYears(unitId: number) {
-    const earliestLease = await this.databaseService.lease.findFirst({
+    const earliestLease = await prisma.lease.findFirst({
       where: {
         unitId,
         status: 'ACTIVE',
@@ -1384,7 +1383,7 @@ export class PaymentService {
   }
 
   async getYears() {
-    const earliestLease = await this.databaseService.lease.findFirst({
+    const earliestLease = await prisma.lease.findFirst({
       where: {
         status: 'ACTIVE',
       },
@@ -1411,7 +1410,7 @@ export class PaymentService {
 
   async deleteMany(ids: number[]) {
     try {
-      return await this.databaseService.payment.deleteMany({
+      return await prisma.payment.deleteMany({
         where: {
           id: { in: ids },
         },
@@ -1429,7 +1428,7 @@ export class PaymentService {
     const yearStart = new Date(`${year}-01-01T00:00:00.000Z`);
     const yearEnd = new Date(`${year}-12-31T23:59:59.999Z`);
 
-    const leases = await this.databaseService.lease.findMany({
+    const leases = await prisma.lease.findMany({
       where: {
         houseId,
         startDate: { lte: yearEnd },
@@ -1446,7 +1445,7 @@ export class PaymentService {
 
     const leaseIds = leases.map((l) => l.id);
 
-    const payments = await this.databaseService.payment.findMany({
+    const payments = await prisma.payment.findMany({
       where: {
         houseId,
         leaseId: { in: leaseIds },
@@ -1563,7 +1562,7 @@ export class PaymentService {
     const yearEnd = new Date(`${year}-12-31T23:59:59.999Z`);
 
     // 1️⃣ Fetch leases + meter readings + unit (for deposit)
-    const leases = await this.databaseService.lease.findMany({
+    const leases = await prisma.lease.findMany({
       where: {
         startDate: { lte: yearEnd },
         OR: [{ endDate: { gte: yearStart } }, { endDate: null }],
@@ -1581,7 +1580,7 @@ export class PaymentService {
     const leaseIds = leases.map((l) => l.id);
 
     // 2️⃣ Fetch payments
-    const payments = await this.databaseService.payment.findMany({
+    const payments = await prisma.payment.findMany({
       where: {
         leaseId: { in: leaseIds },
         date: { gte: yearStart, lte: yearEnd },
@@ -1724,7 +1723,7 @@ export class PaymentService {
     const yearEnd = new Date(`${year}-12-31T23:59:59.999Z`);
 
     // 1️⃣ Fetch all relevant leases
-    const leases = await this.databaseService.lease.findMany({
+    const leases = await prisma.lease.findMany({
       where: {
         code: leaseCode,
         startDate: { lte: yearEnd },
@@ -1741,7 +1740,7 @@ export class PaymentService {
     if (!leases.length) return [];
 
     // 2️⃣ Fetch all payments in that year
-    const payments = await this.databaseService.payment.findMany({
+    const payments = await prisma.payment.findMany({
       where: {
         lease: { code: leaseCode },
         date: { gte: yearStart, lte: yearEnd },
@@ -1878,7 +1877,7 @@ export class PaymentService {
     const endIndex = normalizeMonth(endMonth);
 
     // 1. Fetch leases (active or all)
-    const leases = await this.databaseService.lease.findMany({
+    const leases = await prisma.lease.findMany({
       where: includePastTenantsData
         ? { houseId }
         : { houseId, status: 'ACTIVE' },
@@ -1982,7 +1981,7 @@ export class PaymentService {
     let leases;
 
     if (includePastTenantsData === true) {
-      leases = await this.databaseService.lease.findMany({
+      leases = await prisma.lease.findMany({
         where: {
           houseId,
         },
@@ -1991,7 +1990,7 @@ export class PaymentService {
         },
       });
     } else {
-      leases = await this.databaseService.lease.findMany({
+      leases = await prisma.lease.findMany({
         where: {
           houseId,
           status: 'ACTIVE',

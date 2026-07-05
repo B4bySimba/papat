@@ -1,25 +1,24 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { HashidService } from 'src/common/hashid/hashid.service';
-import { DatabaseService } from 'src/database/database.service';
+import prisma from 'lib/db';
 
 @Injectable()
 export class MeterReadingService {
   constructor(
-    private readonly databaseService: DatabaseService,
     private readonly hashidservice: HashidService,
   ) {}
 
   async create(createMeterReadingDto: any) {
     const leaseId = createMeterReadingDto.lease.connect.id;
-    const lease = await this.databaseService.lease.findUnique({
+    const lease = await prisma.lease.findUnique({
       where: { id: leaseId },
     });
     if (!lease) {
       throw new Error('No lease Found with that Id');
     }
 
-    return this.databaseService.meterReading.create({
+    return prisma.meterReading.create({
       data: {
         ...createMeterReadingDto,
         tenant: { connect: { id: lease.tenantId } },
@@ -30,17 +29,17 @@ export class MeterReadingService {
   }
 
   async findAll() {
-    return this.databaseService.meterReading.findMany({});
+    return prisma.meterReading.findMany({});
   }
 
   async findOne(id: number) {
-    return this.databaseService.meterReading.findUnique({
+    return prisma.meterReading.findUnique({
       where: { id },
     });
   }
 
   async getAll() {
-    const meterReading = await this.databaseService.meterReading.findMany({
+    const meterReading = await prisma.meterReading.findMany({
       select: {
         house: {
           select: {
@@ -85,7 +84,7 @@ export class MeterReadingService {
   }
 
   async getUnit(unitId: number) {
-    return this.databaseService.meterReading.findMany({
+    return prisma.meterReading.findMany({
       where: { unitId },
     });
   }
@@ -95,22 +94,22 @@ export class MeterReadingService {
       updateMeterReadingDto.readOn = new Date(updateMeterReadingDto.readOn);
     }
     
-    return this.databaseService.meterReading.update({
+    return prisma.meterReading.update({
       where: { id },
       data: updateMeterReadingDto,
     });
   }
 
   async remove(id: number) {
-    return this.databaseService.meterReading.delete({
+    return prisma.meterReading.delete({
       where: { id },
     });
   }
 
   async createMany(readings: any[]) {
-    return this.databaseService.$transaction(
+    return prisma.$transaction(
       readings.map((r) =>
-        this.databaseService.meterReading.create({
+        prisma.meterReading.create({
           data: {
             currentReading: r.currentReading,
             readOn: new Date(r.readOn),

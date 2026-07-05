@@ -1,17 +1,16 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { DatabaseService } from 'src/database/database.service';
+import prisma from 'lib/db';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly databaseService: DatabaseService,
     private readonly jwtService: JwtService,
   ) {}
 
   async validateUser(email: string, password: string) {
-    const user = await this.databaseService.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { email },
       include: { permissions: true }, // Include permissions
     });

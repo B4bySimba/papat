@@ -7,18 +7,17 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { HashidService } from 'src/common/hashid/hashid.service';
-import { DatabaseService } from 'src/database/database.service';
+import prisma from 'lib/db';
 
 @Injectable()
 export class TenantService {
   constructor(
-    private readonly databaseService: DatabaseService,
     private readonly hashIdService: HashidService,
   ) {}
 
   //frontend
   async searchTenants(query: string) {
-    const tenants = await this.databaseService.tenant.findMany({
+    const tenants = await prisma.tenant.findMany({
       where: {
         state: 'ACTIVE',
         OR: [
@@ -40,7 +39,7 @@ export class TenantService {
   }
 
   async leaseCode(unitId: number) {
-    const unitExists = await this.databaseService.unit.findUnique({
+    const unitExists = await prisma.unit.findUnique({
       where: { id: unitId },
       select: { id: true },
     });
@@ -49,7 +48,7 @@ export class TenantService {
       throw new NotFoundException('Unit does not exist');
     }
 
-    const lease = await this.databaseService.lease.findFirst({
+    const lease = await prisma.lease.findFirst({
       where: {
         unitId,
         status: 'ACTIVE',
@@ -117,7 +116,7 @@ export class TenantService {
     };
 
     try {
-      const tenant = await this.databaseService.$transaction(async (tx) => {
+      const tenant = await prisma.$transaction(async (tx) => {
         const unit = await tx.unit.update({
           where: { id: unitId },
           data: { tenantSequence: { increment: 1 } },
@@ -249,7 +248,7 @@ export class TenantService {
   }
 
   async findTenant(Id: number) {
-    const activeLease = await this.databaseService.lease.findFirst({
+    const activeLease = await prisma.lease.findFirst({
       where: {
         unitId: Id,
         status: 'ACTIVE',
@@ -305,13 +304,13 @@ export class TenantService {
     const leaseId = activeLease.id;
 
     // Fetch all readings
-    const readings = await this.databaseService.meterReading.findMany({
+    const readings = await prisma.meterReading.findMany({
       where: { leaseId },
       orderBy: { readOn: 'asc' },
     });
 
     // Fetch all payments
-    const payments = await this.databaseService.payment.findMany({
+    const payments = await prisma.payment.findMany({
       where: { leaseId },
     });
 
@@ -393,7 +392,7 @@ export class TenantService {
   }
 
   async getTenant(unitId: number) {
-    const unitExists = await this.databaseService.unit.findUnique({
+    const unitExists = await prisma.unit.findUnique({
       where: { id: unitId },
       select: { id: true },
     });
@@ -402,7 +401,7 @@ export class TenantService {
       throw new NotFoundException('Unit does not exist');
     }
 
-    const lease = await this.databaseService.lease.findFirst({
+    const lease = await prisma.lease.findFirst({
       where: {
         unitId,
         status: 'ACTIVE',
@@ -487,7 +486,7 @@ export class TenantService {
   }
 
   async year(code: string): Promise<number> {
-    const firstLease = await this.databaseService.lease.findFirst({
+    const firstLease = await prisma.lease.findFirst({
       where: { code },
       orderBy: { startDate: 'asc' },
       select: { startDate: true },
@@ -501,14 +500,14 @@ export class TenantService {
   }
 
   async arrearsbf(id: number, updateLeaseDto: Prisma.LeaseUpdateInput) {
-    return this.databaseService.lease.update({
+    return prisma.lease.update({
       where: { id },
       data: updateLeaseDto,
     });
   }
 
   async past(Id: number) {
-    const terminatedLeases = await this.databaseService.lease.findMany({
+    const terminatedLeases = await prisma.lease.findMany({
       where: {
         unitId: Id,
         status: 'TERMINATED',
@@ -546,7 +545,7 @@ export class TenantService {
   }
 
   async getPastTenant(id: number) {
-    const lease = await this.databaseService.lease.findFirst({
+    const lease = await prisma.lease.findFirst({
       where: {
         id,
         status: 'TERMINATED',
@@ -645,7 +644,7 @@ export class TenantService {
     }
 
     try {
-      const tenant = await this.databaseService.$transaction(async (tx) => {
+      const tenant = await prisma.$transaction(async (tx) => {
         // Step 1: Increment tenantSequence and fetch unit with house
         const unit = await tx.unit.update({
           where: { id: unitId },
@@ -734,11 +733,11 @@ export class TenantService {
   }
 
   async findAll() {
-    return this.databaseService.tenant.findMany({ include: { lease: true } });
+    return prisma.tenant.findMany({ include: { lease: true } });
   }
 
   async findOne(id: number) {
-    return this.databaseService.tenant.findUnique({
+    return prisma.tenant.findUnique({
       where: {
         id,
       },
@@ -751,7 +750,7 @@ export class TenantService {
   }
 
   update(id: number, updateTenantDto: Prisma.TenantUpdateInput) {
-    return this.databaseService.tenant.update({
+    return prisma.tenant.update({
       where: { id },
       data: updateTenantDto,
     });
@@ -759,7 +758,7 @@ export class TenantService {
 
   async vacateTenant(id: number, terminationDate: string) {
     // Find the tenant and their unit
-    const tenant = await this.databaseService.tenant.findUnique({
+    const tenant = await prisma.tenant.findUnique({
       where: { id },
       include: { unit: true },
     });
@@ -774,7 +773,7 @@ export class TenantService {
 
     const name = tenant.name;
     const unitId = tenant.unitId;
-    const unit = await this.databaseService.unit.findUnique({
+    const unit = await prisma.unit.findUnique({
       where: { id: unitId },
     });
     const unitNumber = unit?.number;
@@ -786,19 +785,19 @@ export class TenantService {
     }
 
     // Transaction: mark tenant as OUT and unit as VACANT
-    await this.databaseService.$transaction([
-      this.databaseService.lease.updateMany({
+    await prisma.$transaction([
+      prisma.lease.updateMany({
         where: { tenantId: id },
         data: {
           status: 'TERMINATED',
           terminationDate: parsedDate,
         },
       }),
-      this.databaseService.tenant.update({
+      prisma.tenant.update({
         where: { id },
         data: { state: 'FORMER' },
       }),
-      this.databaseService.unit.update({
+      prisma.unit.update({
         where: { id: unitId },
         data: { state: false },
       }),
@@ -810,7 +809,7 @@ export class TenantService {
   }
 
   async remove(tenantId: number): Promise<{ message: string }> {
-    return await this.databaseService.$transaction(async (databaseService) => {
+    return await prisma.$transaction(async (databaseService) => {
       const tenantWithLease = await databaseService.tenant.findUnique({
         where: { id: tenantId },
         include: {

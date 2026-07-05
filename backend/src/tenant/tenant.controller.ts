@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, HttpException, HttpStatus, NotFoundException, Query } from '@nestjs/common';
 import { TenantService } from './tenant.service';
 import { Prisma } from '@prisma/client';
-import { DatabaseService } from 'src/database/database.service';
+import prisma from 'lib/db';
 import { HashidPipe } from 'src/common/hashid/hashid.pipe';
 import { HashidService } from 'src/common/hashid/hashid.service';
 
@@ -10,7 +10,6 @@ import { HashidService } from 'src/common/hashid/hashid.service';
 export class TenantController {
   constructor(
     private readonly tenantService: TenantService,
-    private readonly databaseService: DatabaseService,
     private readonly hashidService: HashidService,
   ) {}
 
@@ -199,7 +198,7 @@ export class TenantController {
 
   @Patch('edit-lease/:id')
   async updateLease(@Param('id') id: string, @Body() data: any) {
-    return this.databaseService.lease.update({
+    return prisma.lease.update({
       where: { id: +id },
       data,
     });
@@ -207,6 +206,6 @@ export class TenantController {
 
   @Get('lease/:code')
   async getLease(@Param('code') code: string) {
-    return this.databaseService.lease.findFirst({ where: { code } });
+    return prisma.lease.findFirst({ where: { code } });
   }
 }

@@ -1,20 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { HashidService } from 'src/common/hashid/hashid.service';
-import { DatabaseService } from 'src/database/database.service';
+import prisma from 'lib/db';
 
 
 @Injectable()
 export class LandlordService {
   constructor(
-    private readonly databaseService: DatabaseService,
     private readonly hashidservice: HashidService,
   ) {}
 
   //lease
   async findActiveByTenant(tenantId: number) {
     console.log(tenantId)
-    return this.databaseService.lease.findFirst({
+    return prisma.lease.findFirst({
       where: {
         tenantId, // ✅ This is fine if tenantId is definitely a number
         status: 'ACTIVE',
@@ -26,7 +25,7 @@ export class LandlordService {
   }
 
   async findActiveByHouseAndUnit(houseId: number, unitId: number) {
-    return this.databaseService.lease.findFirst({
+    return prisma.lease.findFirst({
       where: {
         houseId,
         unitId,
@@ -37,15 +36,15 @@ export class LandlordService {
   }
 
   async create(createLandlordDto: Prisma.LandlordCreateInput) {
-    return this.databaseService.landlord.create({ data: createLandlordDto });
+    return prisma.landlord.create({ data: createLandlordDto });
   }
 
   async findAll() {
-    return this.databaseService.landlord.findMany({});
+    return prisma.landlord.findMany({});
   }
 
   async getAll() {
-    const landlords = await this.databaseService.landlord.findMany({
+    const landlords = await prisma.landlord.findMany({
       select: {
         id: true,
         name: true,
@@ -62,7 +61,7 @@ export class LandlordService {
   }
 
   async findOne(id: number) {
-    return this.databaseService.landlord.findUnique({
+    return prisma.landlord.findUnique({
       where: {
         id,
       },
@@ -73,7 +72,7 @@ export class LandlordService {
   }
 
   update(id: number, updateLandlordDto: Prisma.LandlordUpdateInput) {
-    return this.databaseService.landlord.update({
+    return prisma.landlord.update({
       where: {
         id,
       },
@@ -82,7 +81,7 @@ export class LandlordService {
   }
 
   async remove(id: number) {
-    return this.databaseService.landlord.delete({
+    return prisma.landlord.delete({
       where: {
         id,
       },

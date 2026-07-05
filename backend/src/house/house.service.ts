@@ -1,20 +1,19 @@
 import { BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { HashidService } from 'src/common/hashid/hashid.service';
-import { DatabaseService } from 'src/database/database.service';
+import prisma from 'lib/db';
 
 
 @Injectable()
 export class HouseService {
   constructor(
-    private readonly databaseService: DatabaseService,
     private readonly hashidService: HashidService,
   ) {}
 
   async create(createHouseDto: Prisma.HouseCreateInput) {
     console.log('Data to be inserted into the database:', createHouseDto);
 
-    const house = await this.databaseService.house.create({
+    const house = await prisma.house.create({
       data: createHouseDto,
     });
 
@@ -24,11 +23,11 @@ export class HouseService {
   }
 
   async findAll() {
-    return this.databaseService.house.findMany({});
+    return prisma.house.findMany({});
   }
 
   async find() {
-    return this.databaseService.house.findMany({
+    return prisma.house.findMany({
       where: {
         lease: {
           some: {}, // means: at least one lease exists
@@ -41,7 +40,7 @@ export class HouseService {
   }
 
   async getNameAndIds() {
-    const houses = await this.databaseService.house.findMany({
+    const houses = await prisma.house.findMany({
       select: {
         id: true,
         name: true,
@@ -55,7 +54,7 @@ export class HouseService {
   }
 
   async findOne(id: number) {
-    return this.databaseService.house.findUnique({
+    return prisma.house.findUnique({
       where: {
         id,
       },
@@ -63,7 +62,7 @@ export class HouseService {
   }
 
   async getHouseDets(id: number) {
-    const unit = await this.databaseService.unit.groupBy({
+    const unit = await prisma.unit.groupBy({
       by: ['state'],
       where: { houseId: id },
       _count: {
@@ -77,7 +76,7 @@ export class HouseService {
       unitCounts[String(u.state)] = u._count.state;
     });
 
-    const house = await this.databaseService.house.findUnique({
+    const house = await prisma.house.findUnique({
       where: { id },
       select: {
         name: true,
@@ -132,7 +131,7 @@ export class HouseService {
   }
 
   async getUnits(id: number) {
-    return this.databaseService.house.findUnique({
+    return prisma.house.findUnique({
       where: {
         id,
       },
@@ -141,7 +140,7 @@ export class HouseService {
   }
 
   update(id: number, updateHouseDto: Prisma.HouseUpdateInput) {
-    return this.databaseService.house.update({
+    return prisma.house.update({
       where: {
         id,
       },
@@ -150,7 +149,7 @@ export class HouseService {
   }
 
   async remove(id: number) {
-    return this.databaseService.house.delete({
+    return prisma.house.delete({
       where: {
         id,
       },
@@ -217,7 +216,7 @@ export class HouseService {
       if (landlordId) {
         data.landlord = { connect: { id: landlordId } };
       } else if (landlordName) {
-        const newLandlord = await this.databaseService.landlord.create({
+        const newLandlord = await prisma.landlord.create({
           data: {
             name: landlordName,
             contact: landlordContact,
@@ -232,7 +231,7 @@ export class HouseService {
         );
       }
 
-      const createdHouse = await this.databaseService.house.create({ data });
+      const createdHouse = await prisma.house.create({ data });
       return createdHouse;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -255,7 +254,7 @@ export class HouseService {
 
     if (!trimmedQuery) return [];
 
-    const properties = await this.databaseService.house.findMany({
+    const properties = await prisma.house.findMany({
       where: {
         name: {
           contains: trimmedQuery,
@@ -276,7 +275,7 @@ export class HouseService {
 
     if (!trimmedQuery) return [];
 
-    const properties = await this.databaseService.house.findMany({
+    const properties = await prisma.house.findMany({
       where: {
         name: {
           contains: trimmedQuery,
@@ -297,7 +296,7 @@ export class HouseService {
   }
 
   async getHousesWithUnitsAndTenants() {
-    const houses = await this.databaseService.house.findMany({
+    const houses = await prisma.house.findMany({
       select: {
         id: true,
         name: true,
@@ -346,7 +345,7 @@ export class HouseService {
   }
 
   async getHousesWithUnits() {
-    const houses = await this.databaseService.house.findMany({
+    const houses = await prisma.house.findMany({
       select: {
         id: true,
         name: true,

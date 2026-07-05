@@ -1,12 +1,11 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { HashidService } from 'src/common/hashid/hashid.service';
-import { DatabaseService } from 'src/database/database.service';
+import prisma from 'lib/db';
 
 @Injectable()
 export class UnitService {
   constructor(
-    private readonly databaseService: DatabaseService,
     private readonly hashidService: HashidService,
   ) {}
 
@@ -22,7 +21,7 @@ export class UnitService {
 
     if (!houseId) return [];
 
-    const units = await this.databaseService.unit.findMany({
+    const units = await prisma.unit.findMany({
       where: {
         houseId,
         number: {
@@ -52,7 +51,7 @@ export class UnitService {
 
     if (!houseId) return [];
 
-    const units = await this.databaseService.unit.findMany({
+    const units = await prisma.unit.findMany({
       where: {
         houseId,
         number: {
@@ -73,11 +72,11 @@ export class UnitService {
   async createUnit(createUnitDto: Prisma.UnitCreateInput) {
     const houseId = (createUnitDto.house as any).connect.id;
 
-    const houseRecord = await this.databaseService.house.findUnique({
+    const houseRecord = await prisma.house.findUnique({
       where: { id: houseId },
     });
 
-    const existingUnitWithNumber = await this.databaseService.unit.findFirst({
+    const existingUnitWithNumber = await prisma.unit.findFirst({
       where: {
         houseId,
         number: createUnitDto.number,
@@ -95,7 +94,7 @@ export class UnitService {
       throw new HttpException('House not found.', HttpStatus.NOT_FOUND);
     }
 
-      const lastUnit = await this.databaseService.unit.findFirst({
+      const lastUnit = await prisma.unit.findFirst({
         where: { houseId },
         orderBy: { code: 'desc' },
         select: { code: true },
@@ -105,7 +104,7 @@ export class UnitService {
 
 
       // Extract suffix only from valid codes for this house
-      const allUnits = await this.databaseService.unit.findMany({
+      const allUnits = await prisma.unit.findMany({
         where: {
           houseId,
           code: { startsWith: prefix },
@@ -124,7 +123,7 @@ export class UnitService {
       const code = `${prefix}${nextIndex}`;
 
       try {
-        const createdUnit = await this.databaseService.unit.create({
+        const createdUnit = await prisma.unit.create({
           data: {
             ...createUnitDto,
             code,
@@ -146,7 +145,7 @@ export class UnitService {
 
 
   async getUnits(houseId: number) {
-    const units = await this.databaseService.unit.findMany({
+    const units = await prisma.unit.findMany({
       where: { houseId },
       include: {
         lease: {
@@ -189,7 +188,7 @@ export class UnitService {
   }
 
   async getOne(id: number) {
-    const unit = await this.databaseService.unit.findUnique({
+    const unit = await prisma.unit.findUnique({
       where: {
         id,
       },
@@ -222,7 +221,7 @@ export class UnitService {
 
   async names(houseId: number) {
     // Fetch house and its units (vacant only)
-    const house = await this.databaseService.house.findUnique({
+    const house = await prisma.house.findUnique({
       where: { id: houseId },
       select: {
         water_bill: true,
@@ -261,7 +260,7 @@ export class UnitService {
       throw new Error('Invalid house ID');
     }
 
-    const house = await this.databaseService.house.findUnique({
+    const house = await prisma.house.findUnique({
       where: { id: houseId },
     });
     if (!house) {
@@ -270,7 +269,7 @@ export class UnitService {
 
     for (let attempt = 0; attempt < 5; attempt++) {
       // Step 1: Count existing units
-      const count = await this.databaseService.unit.count({
+      const count = await prisma.unit.count({
         where: { houseId },
       });
 
@@ -279,7 +278,7 @@ export class UnitService {
 
       // Step 3: Try inserting it
       try {
-        return await this.databaseService.unit.create({
+        return await prisma.unit.create({
           data: {
             ...createUnitDto,
             house: {
@@ -309,11 +308,11 @@ export class UnitService {
   }
 
   async findAll() {
-    return this.databaseService.unit.findMany({});
+    return prisma.unit.findMany({});
   }
 
   async findOne(id: number) {
-    return this.databaseService.unit.findUnique({
+    return prisma.unit.findUnique({
       where: {
         id,
       },
@@ -324,7 +323,7 @@ export class UnitService {
   }
 
   update(id: number, updateUnitDto: Prisma.UnitUpdateInput) {
-    return this.databaseService.unit.update({
+    return prisma.unit.update({
       where: {
         id,
       },
@@ -333,7 +332,7 @@ export class UnitService {
   }
 
   async remove(id: number) {
-    return this.databaseService.unit.delete({
+    return prisma.unit.delete({
       where: {
         id,
       },
@@ -342,7 +341,7 @@ export class UnitService {
 
   async deleteMany(ids: number[]) {
     try {
-      return await this.databaseService.unit.deleteMany({
+      return await prisma.unit.deleteMany({
         where: {
           id: { in: ids },
         },
