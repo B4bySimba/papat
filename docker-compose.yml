@@ -1,0 +1,50 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: papat
+      POSTGRES_PASSWORD: papat
+      POSTGRES_DB: infinite
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U papat"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://papat:papat@postgres:5432/infinite?schema=public
+      JWT_SECRET: ${JWT_SECRET:-yourStrongSecret}
+      HASHID_SALT: ${HASHID_SALT:-your_secret_salt_here}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      PORT: 3000
+    ports:
+      - "3000:3000"
+
+  frontend:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      BACKEND_API_URL: http://backend:3000
+      JWT_SECRET: ${JWT_SECRET:-yourStrongSecret}
+      PORT: 3001
+    ports:
+      - "3001:3001"
+
+volumes:
+  postgres_data:
