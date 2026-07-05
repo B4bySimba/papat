@@ -16,3 +16,6 @@ backend/infinite (1)
 backend/infinite2
 backend/inifiinte3
 backend/current-state.sql
+
+# Local Claude Code tool settings (machine/session-specific, not project config)
+.claude/
