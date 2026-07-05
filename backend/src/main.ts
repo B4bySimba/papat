@@ -1,5 +1,15 @@
+import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+
+// Fail fast if required environment variables are missing
+const REQUIRED_ENV = ['JWT_SECRET', 'DATABASE_URL', 'HASHID_SALT', 'PORT', 'CORS_ORIGINS'];
+for (const key of REQUIRED_ENV) {
+  if (!process.env[key]) {
+    console.error(`Required environment variable "${key}" is not set. Aborting.`);
+    process.exit(1);
+  }
+}
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -9,8 +19,7 @@ async function bootstrap() {
     next();
   });
   app.enableCors({
-    origin: '*', // Allow all origins - adjust this in production!
-    // origin: ['https://papat.vercel.app'],
+    origin: process.env.CORS_ORIGINS, // preserves current '*' behavior; sourced from env now
     methods: ['GET,HEAD,PUT,PATCH,POST,DELETE'],
     allowedHeaders: ['content-type'],
     credentials: true,
