@@ -1,0 +1,99 @@
+/* Screen: keep print DOM off-screen but measurable for PDF generation */
+@media screen {
+    .print-root {
+      position: absolute;
+      left: -10000px;
+      top: 0;
+      width: 210mm; /* A4 width to match print metrics */
+    }
+  }
+  
+  /* Print: zero page margins, 4 invoices per page with a small cut gutter */
+  @media print {
+    @page {
+      size: A4 portrait;
+      margin: 0; /* remove all page margins */
+    }
+  
+    html, body {
+      width: 210mm;
+      height: 297mm;
+      margin: 0;      /* remove body margins */
+      padding: 0;     /* remove body padding */
+      background: #fff;
+    }
+  
+    /* Hide everything except the print-root subtree */
+    body * {
+      visibility: hidden !important;
+    }
+    .print-root,
+    .print-root * {
+      visibility: visible !important;
+    }
+
+    .print-root {
+      display: block !important;
+      background: #fff !important; /* force white background */
+    }
+  
+    /* One A4 page (no outer margins) */
+    .print-page {
+      /* Page math and gutters (adjust as needed) */
+      --page-w: 210mm;
+      --page-h: 297mm;
+      --gutter-v: 3mm; /* vertical gutter between left/right invoices */
+      --gutter-h: 3mm; /* horizontal gutter between top/bottom invoices */
+      --col-w: calc((var(--page-w) - var(--gutter-v)) / 2);
+      --row-h: calc((var(--page-h) - var(--gutter-h)) / 2);
+  
+      position: relative;
+      width: var(--page-w);
+      height: var(--page-h);
+      page-break-after: always;
+      break-after: page;
+      box-sizing: border-box;
+      margin: 0;   /* no outer page margin */
+      padding: 0;  /* no outer page padding */
+    }
+  
+    /* Fixed quadrants: 2 x 2. No extra padding here; styling stays inside invoice. */
+    .print-invoice {
+      position: absolute;
+      box-sizing: border-box;
+      width: var(--col-w);
+      height: var(--row-h);
+      margin: 0;
+      padding: 0;    /* no quadrant padding */
+      overflow: hidden;
+    }
+  
+    /* Position order per page: TR, TL, BR, BL (per your requirement) */
+    .pos-tl { left: 0;                                      top: 0; }
+    .pos-tr { left: calc(var(--col-w) + var(--gutter-v));   top: 0; }
+    .pos-bl { left: 0;                                      top: calc(var(--row-h) + var(--gutter-h)); }
+    .pos-br { left: calc(var(--col-w) + var(--gutter-v));   top: calc(var(--row-h) + var(--gutter-h)); }
+  
+    /* Scale inner invoice to fit quadrant exactly while keeping its own styling */
+    .print-invoice .print-scale {
+      --scale: 0.82; /* increase/decrease if you see clipping or too much whitespace */
+      transform: scale(var(--scale));
+      transform-origin: top left;
+      width: calc(100% / var(--scale));
+    }
+  
+    /* Keep template max widths from squeezing in print */
+    .print-invoice .max-w-2xl,
+    .print-invoice .max-w-lg,
+    .print-invoice .mx-auto {
+      max-width: 100% !important;
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+    }
+  
+    /* Ensure on-screen modals/controls never print */
+    .no-print {
+      display: none !important;
+    }
+  }
+  

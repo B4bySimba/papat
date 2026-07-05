@@ -1,0 +1,278 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model House {
+  address             String?
+  description         String?
+  code                String        @unique @default(dbgenerated())
+  name                String        @unique
+  lr_number           String?
+  agreed_commission   Float?
+  water_bill          Float?
+  serviceCharge       Float?
+  garbage_collection  Float?
+  electricity_bill    Float?
+  added_field_1       String?
+  added_field_1_price Float?
+  added_field_2       String?
+  added_field_2_price Float?
+  added_field_3       String?
+  added_field_3_price Float?
+  added_field_4       String?
+  added_field_4_price Float?
+  added_field_5       String?
+  added_field_5_price Float?
+  added_field_6       String?
+  added_field_6_price Float?
+  added_field_7       String?
+  added_field_7_price Float?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  id                  Int           @id @default(autoincrement())
+  landlordId          Int?      
+  landlord            Landlord?     @relation(fields: [landlordId], references: [id], onDelete: Cascade, onUpdate: NoAction) //think it through
+  leaseSequence  Int      @default(0)
+  lease               Lease[]
+  unit                Unit[]
+  payment             payment[]
+  maintenance         maintenance[]
+  MeterReading       MeterReading[]
+
+  @@index([landlordId])
+}
+
+model Landlord {
+  code       String   @unique @default(dbgenerated())
+  name       String
+  contact    String   @unique
+  nationalId String?     @unique
+  email      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  id         Int      @id @default(autoincrement())
+  house      House[]
+}
+
+model Unit {
+  code              String         @unique
+  number            String
+  type              String
+  description       String?
+  additional        String?
+  additionalCharges Float?
+  deposit           Float?
+  rentRate          Float
+  state             Boolean        @default(false)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  tenantSequence    Int            @default(0)
+  houseId           Int
+  @@unique([houseId, number])
+  @@unique([houseId, code])
+  id                Int            @id @default(autoincrement())
+  lease             Lease[]
+  meterReading      MeterReading[]
+  tenant            Tenant[]
+  payment           payment[]
+  maintenance       maintenance[]
+  house             House          @relation(fields: [houseId], references: [id], onDelete: Cascade, onUpdate: NoAction)//think
+
+  @@index([houseId])
+  @@index([number])
+}
+
+model Tenant {
+  code         String         @unique
+  @@unique([unitId, code])
+  name         String
+  photo        String?
+  nationId     String?
+  contact      String
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  notes        String?
+  state        Tstate         @default(ACTIVE)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  unitId       Int
+  id           Int            @id @default(autoincrement())
+  lease        Lease[]
+  meterReading MeterReading[]
+  unit         Unit          @relation(fields: [unitId], references: [id], onDelete: Cascade, onUpdate: NoAction)//think
+  payment      payment[]
+  maintenance  maintenance[]
+
+  @@index([unitId])
+  @@index([state])
+}
+
+model Lease {
+  arrearsbf           Float?
+  code                String         
+  moveInDate          DateTime
+  startDate           DateTime
+  endDate             DateTime?
+  rentDue             Int
+  additional          String?
+  additionalCharges   Float
+  onEntryMeterReading Float
+  status              Lstate         @default(ACTIVE)
+  terminationDate     DateTime?
+  rentRate            Float
+  deposit             Float?
+  waterRate           Float
+  serviceCharge       Float?
+  electricityRate     Float
+  garbageFee          Float
+  added_field_1       String?
+  added_field_1_price Float
+  added_field_2       String?
+  added_field_2_price Float
+  added_field_3       String?
+  added_field_3_price Float
+  added_field_4       String?
+  added_field_4_price Float
+  added_field_5       String?
+  added_field_5_price Float
+  added_field_6       String?
+  added_field_6_price Float
+  added_field_7       String?
+  added_field_7_price Float  
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  houseId             Int
+  unitId              Int
+  tenantId            Int
+  id                  Int            @id @default(autoincrement())
+  house               House          @relation(fields: [houseId], references: [id], onDelete: Cascade, onUpdate: NoAction)//think
+  tenant              Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction)//think
+  unit                Unit          @relation(fields: [unitId], references: [id], onDelete: Cascade, onUpdate: NoAction)//think
+  meterReading        MeterReading[]
+  payment             payment[]
+
+  @@index([unitId])
+  @@index([tenantId])
+  @@index([houseId])
+  @@index([status])
+  @@index([startDate])
+  @@index([houseId, status])
+}
+
+model MeterReading {
+  currentReading Float
+  readOn         DateTime @default(now())
+  cretedAt       DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  id             Int      @id @default(autoincrement())
+  unitId         Int
+  houseId        Int?
+  tenantId       Int?
+  leaseId        Int?
+  lease          Lease?   @relation(fields: [leaseId], references: [id], onDelete: Cascade, onUpdate: NoAction)//think
+  tenant         Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction)//think
+  unit           Unit    @relation(fields: [unitId], references: [id], onDelete: Cascade, onUpdate: NoAction)//think
+  house         House?    @relation(fields: [houseId], references: [id], onDelete: Cascade, onUpdate: NoAction)//think
+
+  @@index([leaseId])
+  @@index([tenantId])
+  @@index([unitId])
+  @@index([readOn])
+}
+
+model payment {
+  id            Int      @id @default(autoincrement())
+  amount        Float
+  date          DateTime
+  reference     String   @unique
+  paymentMethod String
+  comment       String?
+  processed     Boolean  @default(true)
+  manualInput   Boolean? 
+  rawDetails    Json?
+  cretedAt      DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  houseId       Int?
+  tenantId      Int?
+  leaseId       Int?
+  unitId        Int?
+  house         House?    @relation(fields: [houseId], references: [id], onDelete: Cascade, onUpdate: NoAction)//think
+  lease         Lease?   @relation(fields: [leaseId], references: [id], onDelete: Cascade, onUpdate: NoAction)//think
+  tenant        Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction)//think
+  unit          Unit?  @relation(fields: [unitId], references: [id], onDelete: Cascade, onUpdate: NoAction)//think
+
+  @@index([leaseId])
+  @@index([tenantId])
+  @@index([houseId])
+  @@index([unitId])
+  @@index([date])
+  @@index([leaseId, date])
+  @@index([houseId, date])
+}
+
+model maintenance {
+  id            Int       @id @default(autoincrement())
+  houseId       Int
+  unitId        Int?    
+  reportedById  Int?    
+  description   String
+  cost          Float?  
+  status        MStatus   @default(PENDING)
+  reportedAt    DateTime  @default(now())
+  resolvedAt    DateTime? 
+  remarks       String? 
+  
+  house         House     @relation(fields: [houseId], references: [id])
+  unit          Unit?     @relation(fields: [unitId], references: [id])
+  reportedBy    Tenant?   @relation(fields: [reportedById], references: [id])
+
+  @@index([houseId])
+  @@index([unitId])
+  @@index([reportedById])
+}
+
+enum MStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+
+enum Tstate {
+  ACTIVE
+  FORMER
+  BLACKLISTED
+}
+
+enum Lstate {
+  ACTIVE
+  TERMINATED
+}
+
+model User {
+  id        Int   @id @default(autoincrement())
+  email     String   @unique
+  name      String?
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  role         Role         @default(SUBORDINATE)
+  permissions Permission[] @relation("UserPermissions")
+}
+
+model Permission {
+  id    String   @id @default(cuid())
+  name  String   @unique
+  users User[]   @relation("UserPermissions")
+}
+
+enum Role {
+  ADMIN
+  SUBORDINATE
+}
