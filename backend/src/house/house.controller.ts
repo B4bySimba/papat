@@ -10,7 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { HouseService } from './house.service';
-import { Prisma } from '@prisma/client';
+import { Prisma } from 'generated/prisma/client';
 import { HashidPipe } from 'src/common/hashid/hashid.pipe';
 import { HashidService } from 'src/common/hashid/hashid.service';
 import { PermissionsGuard } from 'src/auth/permissions.guard';

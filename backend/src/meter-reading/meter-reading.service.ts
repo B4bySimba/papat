@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma } from 'generated/prisma/client';
 import { HashidService } from 'src/common/hashid/hashid.service';
 import prisma from 'lib/db';
 

@@ -1,6 +1,6 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import prisma from 'lib/db';
-import { Prisma } from '@prisma/client';
+import { Prisma } from 'generated/prisma/client';
 import { first, last } from 'rxjs';
 import { HashidService } from 'src/common/hashid/hashid.service';
 import {

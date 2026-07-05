@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, HttpException, HttpStatus, NotFoundException, Query } from '@nestjs/common';
 import { TenantService } from './tenant.service';
-import { Prisma } from '@prisma/client';
+import { Prisma } from 'generated/prisma/client';
 import prisma from 'lib/db';
 import { HashidPipe } from 'src/common/hashid/hashid.pipe';
 import { HashidService } from 'src/common/hashid/hashid.service';

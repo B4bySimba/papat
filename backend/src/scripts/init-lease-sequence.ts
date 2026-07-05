@@ -1,8 +1,6 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from 'lib/db';
 
 async function main() {
-  const prisma = new PrismaClient();
-
   const houses = await prisma.house.findMany({
     include: {
       lease: true,
