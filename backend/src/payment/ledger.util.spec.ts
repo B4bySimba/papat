@@ -2,6 +2,7 @@ import {
   billingDateFor,
   buildLedger,
   generateCharges,
+  sortSummaryMonths,
   ChargeEvent,
   LeaseFieldsForLedger,
   ReadingPoint,
@@ -252,6 +253,29 @@ describe('meter resets and misc water rules (fixtures E/F)', () => {
       new Date(2025, 0, 1),
       new Date(2025, 1, 1),
     ]);
+  });
+});
+
+describe('sortSummaryMonths', () => {
+  it('reorders merge-insertion month keys into calendar order', () => {
+    // The order a house summary actually produced when an Aug-start lease
+    // merged before a Jan-start one.
+    const jumbled: Record<number, Record<string, number>> = { 2025: {} };
+    for (const m of [
+      'August', 'September', 'October', 'November', 'December',
+      'July', 'January', 'February', 'March', 'April', 'May', 'June',
+    ]) {
+      jumbled[2025][m] = 1;
+    }
+    expect(Object.keys(sortSummaryMonths(jumbled)[2025])).toEqual([
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+    ]);
+  });
+
+  it('keeps only the months present', () => {
+    const sparse = { 2025: { March: 1, January: 2 } };
+    expect(Object.keys(sortSummaryMonths(sparse)[2025])).toEqual(['January', 'March']);
   });
 });
 

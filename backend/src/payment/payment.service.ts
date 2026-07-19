@@ -3,7 +3,7 @@ import prisma from 'lib/db';
 import { Prisma } from 'generated/prisma/client';
 import { first, last } from 'rxjs';
 import { HashidService } from 'src/common/hashid/hashid.service';
-import { generateCharges, buildLedger, billingDateFor } from './ledger.util';
+import { generateCharges, buildLedger, billingDateFor, sortSummaryMonths } from './ledger.util';
 import {
   addMonths,
   differenceInCalendarMonths,
@@ -2219,6 +2219,7 @@ export class PaymentService {
     }
 
     houseSummary.years.sort((a, b) => b - a);
+    houseSummary.summary = sortSummaryMonths(houseSummary.summary);
     return houseSummary;
   }
 
@@ -2262,7 +2263,10 @@ export class PaymentService {
       }
     }
 
-    return { years: Array.from(allYears).sort((a, b) => b - a), summary: cumulativeSummary };
+    return {
+      years: Array.from(allYears).sort((a, b) => b - a),
+      summary: sortSummaryMonths(cumulativeSummary),
+    };
   }
 
   async monthlyReportV2(

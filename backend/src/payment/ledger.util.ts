@@ -196,4 +196,29 @@ export function buildLedger(
   });
 }
 
+const MONTH_ORDER = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+/**
+ * Rebuild each year's month map in calendar order. Summary objects rely on
+ * string-key insertion order for display, and merging multiple leases inserts
+ * months in encounter order — a lease starting in August would otherwise put
+ * Aug–Dec before Jan–Jun in the charts.
+ */
+export function sortSummaryMonths<T>(
+  summary: Record<number, Record<string, T>>,
+): Record<number, Record<string, T>> {
+  const ordered: Record<number, Record<string, T>> = {};
+  for (const year of Object.keys(summary)) {
+    const months = summary[year];
+    ordered[year] = {};
+    for (const month of MONTH_ORDER) {
+      if (months[month] !== undefined) ordered[year][month] = months[month];
+    }
+  }
+  return ordered;
+}
+
 export { startOfMonth, addMonths, endOfMonth };

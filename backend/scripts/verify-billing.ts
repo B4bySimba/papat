@@ -61,6 +61,30 @@ async function seed() {
     added_field_7_price: 0,
   };
 
+  const leaseB = await prisma.lease.create({
+    data: {
+      code: 'LB1',
+      houseId: house.id, unitId: unitB.id, tenantId: tenantB.id,
+      moveInDate: new Date(2025, 1, 1),
+      startDate: new Date(2025, 1, 1),
+      terminationDate: new Date(2025, 2, 20),
+      rentDue: 1,
+      rentRate: 8000,
+      deposit: null,
+      arrearsbf: null,
+      onEntryMeterReading: 0,
+      waterRate: 100,
+      serviceCharge: 200,
+      electricityRate: 0,
+      garbageFee: 0,
+      additionalCharges: 0,
+      ...zeros,
+    },
+  });
+
+  // Lease A is created AFTER lease B on purpose: the house/manager merge walks
+  // leases in id order, so without sortSummaryMonths the 2025 keys would come
+  // out February, March, January.
   const leaseA = await prisma.lease.create({
     data: {
       code: 'LA1',
@@ -81,27 +105,6 @@ async function seed() {
       ...zeros,
       added_field_1: 'security',
       added_field_1_price: 500,
-    },
-  });
-
-  const leaseB = await prisma.lease.create({
-    data: {
-      code: 'LB1',
-      houseId: house.id, unitId: unitB.id, tenantId: tenantB.id,
-      moveInDate: new Date(2025, 1, 1),
-      startDate: new Date(2025, 1, 1),
-      terminationDate: new Date(2025, 2, 20),
-      rentDue: 1,
-      rentRate: 8000,
-      deposit: null,
-      arrearsbf: null,
-      onEntryMeterReading: 0,
-      waterRate: 100,
-      serviceCharge: 200,
-      electricityRate: 0,
-      garbageFee: 0,
-      additionalCharges: 0,
-      ...zeros,
     },
   });
 
@@ -214,6 +217,7 @@ async function verify() {
   eq('Mar collected (A+B)', H.March.collected, 4000);
   eq('Mar balance (A+B)', H.March.balance, 18800);
   eq('Feb payments count (A+B)', H.February.payments.length, 2);
+  eq('months in calendar order (house)', Object.keys(H), ['January', 'February', 'March']);
 
   // ---------- Manager ----------
   console.log('\n— Manager summary —');
@@ -221,6 +225,7 @@ async function verify() {
   const M = ms.summary['2025'];
   eq('Mar expected', M.March.expected, 22800);
   eq('Mar balance', M.March.balance, 18800);
+  eq('months in calendar order (manager)', Object.keys(M), ['January', 'February', 'March']);
 
   // ---------- Monthly report ----------
   console.log('\n— Monthly report (March 2025) —');
