@@ -3,6 +3,7 @@ import prisma from 'lib/db';
 import { Prisma } from 'generated/prisma/client';
 import { first, last } from 'rxjs';
 import { HashidService } from 'src/common/hashid/hashid.service';
+import { generateCharges, buildLedger, billingDateFor } from './ledger.util';
 import {
   addMonths,
   differenceInCalendarMonths,
@@ -2046,5 +2047,333 @@ export class PaymentService {
     return Object.values(unitsMap).sort((a, b) =>
       a.unitName.localeCompare(b.unitName),
     );
+  }
+
+  // ==========================================================================
+  // V2 — event-ledger engine. Additive only; V1 methods above are untouched.
+  // See ledger.util.ts for the pure charge/ledger functions this wraps.
+  // ==========================================================================
+
+  async getTenantLevelSummaryV2(leaseCode: string) {
+    const lease = await prisma.lease.findFirst({ where: { code: leaseCode } });
+    if (!lease) {
+      throw new Error('Lease not found');
+    }
+
+    // Scoped by leaseId, not unitId — billingPeriod now makes attribution explicit,
+    // so readings belonging to a different tenancy on the same unit are correctly excluded.
+    const readings = await prisma.meterReading.findMany({
+      where: { leaseId: lease.id },
+      orderBy: { readOn: 'asc' },
+      select: { readOn: true, currentReading: true, billingPeriod: true, isMeterReset: true },
+    });
+
+    const payments = await prisma.payment.findMany({
+      where: { leaseId: lease.id },
+      orderBy: { date: 'asc' },
+    });
+
+    const now = new Date();
+    const asOf = lease.terminationDate ? new Date(lease.terminationDate) : now;
+
+    const charges = generateCharges(lease as any, readings, asOf);
+    const ledger = buildLedger(charges, payments);
+
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+    ];
+
+    const summary: Record<number, Record<string, any>> = {};
+    const years: number[] = [];
+
+    let m = new Date(lease.startDate.getFullYear(), lease.startDate.getMonth(), 1);
+    let prevCumExpected = 0;
+    let prevCumCollected = 0;
+
+    while (m <= asOf) {
+      const monthEnd = new Date(m.getFullYear(), m.getMonth() + 1, 0, 23, 59, 59, 999);
+      const pointsInMonth = ledger.filter((p) => p.date <= monthEnd);
+      const last = pointsInMonth.length ? pointsInMonth[pointsInMonth.length - 1] : { cumExpected: 0, cumCollected: 0, balance: 0 };
+
+      // "expected" = new charges this month + carried-forward balance
+      // (rentRate + waterCharge + extras + carriedBalance), not new-charges-alone.
+      // Algebraically: prevBalance + monthNewCharges = last.cumExpected - prevCumCollected.
+      const monthExpected = last.cumExpected - prevCumCollected;
+      const monthCollected = last.cumCollected - prevCumCollected;
+
+      const inMonth = (d: Date) => d >= m && d <= monthEnd;
+      // All water events dated in this month (two readings closing the same
+      // month is a data-entry anomaly, but the row must still match the ledger).
+      const waterEvents = charges.filter((c) => c.label === 'water' && inMonth(c.date));
+      const usage = waterEvents.reduce((s, c) => s + (c.meta?.usage ?? 0), 0);
+      const waterChargeTotal = waterEvents.reduce(
+        (s, c) => s + (c.meta?.waterCharge ?? 0) + (c.meta?.serviceCharge ?? 0),
+        0,
+      );
+      const serviceChargeTotal = waterEvents.reduce((s, c) => s + (c.meta?.serviceCharge ?? 0), 0);
+
+      const sumLabel = (label: string) =>
+        charges.filter((c) => c.label === label && inMonth(c.date)).reduce((s, c) => s + c.amount, 0);
+      const rentCharged = sumLabel('rent');
+      const depositCharged = sumLabel('deposit');
+      const arrearsCharged = sumLabel('arrearsbf');
+
+      const extraCharges: Record<string, number> = {};
+      for (const c of charges) {
+        if (inMonth(c.date) && !['rent', 'water', 'arrearsbf', 'deposit'].includes(c.label)) {
+          extraCharges[c.label] = c.amount;
+        }
+      }
+
+      // First month: the effective billing date can't precede the tenancy
+      // (mirrors generateCharges' max(startDate, due day) rule).
+      let billingDate = billingDateFor(m.getFullYear(), m.getMonth(), lease.rentDue);
+      const isStartMonth =
+        m.getFullYear() === lease.startDate.getFullYear() &&
+        m.getMonth() === lease.startDate.getMonth();
+      if (isStartMonth && lease.startDate > billingDate) {
+        billingDate = new Date(lease.startDate);
+      }
+      const billingDateStr = `${billingDate.getFullYear()}-${String(billingDate.getMonth() + 1).padStart(2, '0')}-${String(billingDate.getDate()).padStart(2, '0')}`;
+
+      const year = m.getFullYear();
+      if (!summary[year]) {
+        summary[year] = {};
+        years.push(year);
+      }
+
+      const paymentsInMonth = payments.filter((p) => p.date >= m && p.date <= monthEnd);
+
+      summary[year][monthNames[m.getMonth()]] = {
+        expected: Math.round(monthExpected),
+        collected: Math.round(monthCollected),
+        balance: Math.round(last.balance),
+        usage,
+        waterCharge: waterChargeTotal,
+        serviceCharge: serviceChargeTotal,
+        rentRate: lease.rentRate,
+        rentCharged: Math.round(rentCharged),
+        billingDate: billingDateStr,
+        deposit: Math.round(depositCharged),
+        arrearsbf: Math.round(arrearsCharged),
+        waterRate: lease.waterRate,
+        previousReading: waterEvents.length ? (waterEvents[0].meta?.previousReading ?? null) : null,
+        currentReading: waterEvents.length
+          ? (waterEvents[waterEvents.length - 1].meta?.currentReading ?? null)
+          : null,
+        extraCharges,
+        payments: paymentsInMonth.map((p) => ({
+          date: p.date,
+          amount: p.amount,
+          method: p.paymentMethod,
+          reference: p.reference,
+        })),
+      };
+
+      prevCumExpected = last.cumExpected;
+      prevCumCollected = last.cumCollected;
+      m = new Date(m.getFullYear(), m.getMonth() + 1, 1);
+    }
+
+    return { years: [...new Set(years)].sort((a, b) => b - a), summary };
+  }
+
+  async getHouseLevelSummaryV2(houseId: number) {
+    const leases = await prisma.lease.findMany({
+      where: { houseId, status: 'ACTIVE' },
+      select: { code: true },
+    });
+
+    if (!leases.length) {
+      return { years: [], summary: {}, houseId, houseName: '' };
+    }
+
+    const summaries = await Promise.all(
+      leases.map((l) => this.getTenantLevelSummaryV2(l.code)),
+    );
+
+    const houseSummary = { years: [] as number[], summary: {} as Record<string, Record<string, any>> };
+
+    for (const { years, summary } of summaries) {
+      for (const year of years) {
+        if (!houseSummary.years.includes(year)) houseSummary.years.push(year);
+        if (!houseSummary.summary[year]) houseSummary.summary[year] = {};
+
+        for (const [month, data] of Object.entries(summary[year]) as [string, any][]) {
+          if (!houseSummary.summary[year][month]) {
+            houseSummary.summary[year][month] = {
+              expected: 0, collected: 0, balance: 0, usage: 0, waterCharge: 0, serviceCharge: 0, payments: [],
+            };
+          }
+          const target = houseSummary.summary[year][month];
+          target.expected += data.expected;
+          target.collected += data.collected;
+          target.balance += data.balance;
+          target.usage += data.usage;
+          target.waterCharge += data.waterCharge;
+          target.serviceCharge += data.serviceCharge;
+          target.payments.push(...data.payments);
+        }
+      }
+    }
+
+    houseSummary.years.sort((a, b) => b - a);
+    return houseSummary;
+  }
+
+  async getManagerLevelSummaryV2() {
+    const houses = await prisma.house.findMany({ select: { id: true } });
+
+    const summaries = await Promise.all(
+      houses.map(async (house) => {
+        try {
+          return await this.getHouseLevelSummaryV2(house.id);
+        } catch (err) {
+          console.log(`[V2] Skipping house ${house.id}: ${err.message}`);
+          return null;
+        }
+      }),
+    );
+
+    const cumulativeSummary: Record<number, Record<string, any>> = {};
+    const allYears = new Set<number>();
+
+    for (const s of summaries) {
+      if (!s) continue;
+      for (const year of s.years) {
+        allYears.add(year);
+        if (!cumulativeSummary[year]) cumulativeSummary[year] = {};
+        for (const [month, data] of Object.entries(s.summary[year]) as [string, any][]) {
+          if (!cumulativeSummary[year][month]) {
+            cumulativeSummary[year][month] = {
+              expected: 0, collected: 0, balance: 0, usage: 0, waterCharge: 0, serviceCharge: 0, payments: [],
+            };
+          }
+          const target = cumulativeSummary[year][month];
+          target.expected += data.expected;
+          target.collected += data.collected;
+          target.balance += data.balance;
+          target.usage += data.usage;
+          target.waterCharge += data.waterCharge;
+          target.serviceCharge += data.serviceCharge;
+          target.payments.push(...data.payments);
+        }
+      }
+    }
+
+    return { years: Array.from(allYears).sort((a, b) => b - a), summary: cumulativeSummary };
+  }
+
+  async monthlyReportV2(
+    houseId: number,
+    month: number,
+    year: number,
+    includePastTenantsData: boolean = false,
+  ) {
+    const leases = await prisma.lease.findMany({
+      where: includePastTenantsData ? { houseId } : { houseId, status: 'ACTIVE' },
+      include: { unit: { select: { number: true, id: true } } },
+    });
+    if (!leases.length) return [];
+
+    const leaseSummaries = await Promise.all(
+      leases.map((l) => this.getTenantLevelSummaryV2(l.code)),
+    );
+
+    const unitsMap: Record<string, { unitName: string; expected: number; collected: number; balance: number }> = {};
+    const monthName = new Date(year, month - 1).toLocaleString('default', { month: 'long' });
+
+    for (let i = 0; i < leases.length; i++) {
+      const lease = leases[i];
+      const data = leaseSummaries[i].summary?.[year]?.[monthName];
+      if (!data) continue;
+
+      const key = lease.unit.id;
+      if (!unitsMap[key]) {
+        unitsMap[key] = { unitName: lease.unit.number, expected: 0, collected: 0, balance: 0 };
+      }
+      unitsMap[key].expected += data.expected;
+      unitsMap[key].collected += data.collected;
+      unitsMap[key].balance += data.balance;
+    }
+
+    return Object.values(unitsMap).sort((a, b) => a.unitName.localeCompare(b.unitName));
+  }
+
+  async yearlyReportV2(
+    houseId: number,
+    year?: string,
+    startMonth?: string,
+    endMonth?: string,
+    includePastTenantsData: boolean = false,
+  ) {
+    const targetYear = year ? parseInt(year) : new Date().getFullYear();
+    const monthsOrder = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+    ];
+    const normalizeMonth = (val?: string) => {
+      if (!val) return undefined;
+      const num = parseInt(val, 10);
+      if (!isNaN(num) && num >= 1 && num <= 12) return num - 1;
+      const index = monthsOrder.indexOf(val);
+      return index >= 0 ? index : undefined;
+    };
+    const startIndex = normalizeMonth(startMonth);
+    const endIndex = normalizeMonth(endMonth);
+
+    const leases = await prisma.lease.findMany({
+      where: includePastTenantsData ? { houseId } : { houseId, status: 'ACTIVE' },
+      include: { unit: { select: { number: true, id: true } } },
+    });
+    if (!leases.length) return [];
+
+    const unitSummaries: any[] = [];
+
+    for (const lease of leases) {
+      const leaseSummary = await this.getTenantLevelSummaryV2(lease.code);
+      const yearData = leaseSummary.summary[targetYear];
+      if (!yearData) continue;
+
+      const months = Object.entries(yearData)
+        .sort(([a], [b]) => monthsOrder.indexOf(a) - monthsOrder.indexOf(b))
+        .filter(([month]) => {
+          const idx = monthsOrder.indexOf(month);
+          if (idx === -1) return false;
+          return (startIndex === undefined || idx >= startIndex) && (endIndex === undefined || idx <= endIndex);
+        });
+
+      // Row "expected" is a statement (carry-forward + new charges), so summing it
+      // directly would double-count every month's carry. Subtracting the previous
+      // row's balance leaves new-charges-only for every month after the first; the
+      // first row keeps its carry-in. The total then telescopes so that
+      // totalExpected - totalCollected = the window's true closing balance.
+      // (docs/BILLING_MODEL.md §6)
+      let totalExpected = 0;
+      let totalCollected = 0;
+      let prevBalance: number | null = null;
+      const monthlyCollected: { month: string; collected: number }[] = [];
+
+      for (const [month, rawData] of months) {
+        const data = rawData as any;
+        totalExpected += prevBalance === null ? data.expected : data.expected - prevBalance;
+        totalCollected += data.collected;
+        prevBalance = data.balance;
+        monthlyCollected.push({ month, collected: data.collected });
+      }
+
+      unitSummaries.push({
+        unitNumber: lease.unit.number,
+        rentRate: lease.rentRate ?? null,
+        year: targetYear,
+        months: monthlyCollected,
+        totalExpected,
+        totalCollected,
+        totalBalance: totalExpected - totalCollected,
+      });
+    }
+
+    return unitSummaries.sort((a, b) => a.unitNumber.localeCompare(b.unitNumber));
   }
 }

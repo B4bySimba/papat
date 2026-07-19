@@ -7,6 +7,7 @@ export const meterReadingsSchema = z.object({
   houseId: z.string(),
   houseName: z.string(),
   readOn: z.string(),
+  closingFor: z.string(),
   currentReading: z.number(),
   pricePerUnit: z.number()
 });

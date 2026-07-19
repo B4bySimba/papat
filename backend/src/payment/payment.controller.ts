@@ -12,20 +12,21 @@ export class PaymentController {
   ) {}
 
   //frontend
+  // Wired to V2 (billingPeriod-driven engine) — V1 methods remain on PaymentService, unused by routes.
   @Get('summary')
   async getManagerSummary() {
-    return this.paymentService.getManagerLevelSummary();
+    return this.paymentService.getManagerLevelSummaryV2();
   }
 
   @Get(':houseId/summary')
   async getHouseSummary(@Param('houseId', HashidPipe) houseId: number) {
     console.log(houseId);
-    return this.paymentService.getHouseLevelSummary(houseId);
+    return this.paymentService.getHouseLevelSummaryV2(houseId);
   }
 
   @Get('le/:leaseCode/summary')
   async getTenantSummary(@Param('leaseCode') leaseCode: string) {
-    return this.paymentService.getTenantLevelSummary(leaseCode);
+    return this.paymentService.getTenantLevelSummaryV2(leaseCode);
   }
 
   @Post('createPayment')
@@ -261,7 +262,7 @@ export class PaymentController {
     @Query('endMonth') endMonth: string,
     @Query('includePastTenantsData') includePastTenantsData?: string,
   ) {
-    return this.paymentService.yearlyReport(
+    return this.paymentService.yearlyReportV2(
       houseId,
       year,
       startMonth,
@@ -278,6 +279,6 @@ export class PaymentController {
     @Query('includePastTenantsData') includePastTenantsData?: string,
   ) {
     const includePast = includePastTenantsData === 'true';
-    return this.paymentService.monthlyReport(houseId, month, year, includePast);
+    return this.paymentService.monthlyReportV2(houseId, month, year, includePast);
   }
 }

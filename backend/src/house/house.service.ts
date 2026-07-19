@@ -115,7 +115,9 @@ export class HouseService {
       throw new NotFoundException('House not found');
     }
 
-    if (!house.landlord) return;
+    if (!house.landlord) {
+      return { ...house, unit: unitCounts, landlord: null };
+    }
 
     const encodedLandlordId = this.hashidService.encode(house.landlord.id);
     const { id: _, ...landlordWithoutId } = house.landlord;

@@ -51,7 +51,8 @@ export function MeterReadingsTable({ data, onDelete, onSubmitEdit }: Props) {
   const columns: DataTableProps<MeterReading>["columns"] = [
     { key: "houseName", label: "House" },
     { key: "unitNumber", label: "Unit" },
-    { key: "readOn", label: "Read On" },
+    // { key: "readOn", label: "Read On" },
+    { key: "closingFor", label: "Closing For" },
     { key: "currentReading", label: "Meter Reading" },
     { key: "pricePerUnit", label: "Price Per Unit" },
   ];
@@ -80,6 +81,9 @@ export function MeterReadingsTable({ data, onDelete, onSubmitEdit }: Props) {
             </p>
             <p>
               <strong>Read On:</strong> {tx.readOn}
+            </p>
+            <p>
+              <strong>Closing For:</strong> {tx.closingFor}
             </p>
             <p>
               <strong>Reading:</strong> {tx.currentReading}
@@ -111,6 +115,9 @@ export function MeterReadingsTable({ data, onDelete, onSubmitEdit }: Props) {
               </p>
               <p>
                 <strong>Read On:</strong> {selected.readOn}
+              </p>
+              <p>
+                <strong>Closing For:</strong> {selected.closingFor}
               </p>
               <p>
                 <strong>Reading:</strong> {selected.currentReading}

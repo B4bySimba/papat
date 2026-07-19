@@ -54,6 +54,7 @@ import {
 } from "../ui/command";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { buildInvoiceItems, BuiltInvoice } from "@/lib/invoice-items";
 
 interface InvoiceItem {
   id: number;
@@ -168,7 +169,7 @@ export function MinimalInvoiceTemplate({ invoice, unit, property }: any) {
         <h1 className="text-2xl font-bold text-gray-900">INVOICE</h1>
         <p className="text-gray-600">
           {"#"}
-          {Math.random().toString(36).substr(2, 9).toUpperCase()}
+          {invoice.invoiceNumber}
         </p>
       </div>
       <div className="space-y-3 mb-6">
@@ -186,6 +187,18 @@ export function MinimalInvoiceTemplate({ invoice, unit, property }: any) {
             {monthName}/{invoice.year}
           </span>
         </div>
+        {invoice.dueDate && (
+          <div className="flex justify-between">
+            <span className="text-gray-600">Due Date:</span>
+            <span className="font-medium">
+              {new Date(invoice.dueDate).toLocaleDateString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })}
+            </span>
+          </div>
+        )}
       </div>
       <Separator className="my-4" />
       <div className="space-y-2 mb-6">
@@ -221,10 +234,6 @@ export function DetailedInvoiceTemplate({ invoice, unit, property }: any) {
     "default",
     { month: "long" }
   );
-  console.log("Invoice data in template:", {
-    type: invoice,
-    unitRent: invoice.unit?.rent,
-  });
   return (
     <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-8 max-w-2xl mx-auto border rounded-lg">
       <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-2 -m-8 mb-2 rounded-t-lg">
@@ -233,7 +242,7 @@ export function DetailedInvoiceTemplate({ invoice, unit, property }: any) {
             <h1 className="text-3xl font-bold">INVOICE</h1>
             <p className="text-purple-100">
               {"#"}
-              {Math.random().toString(36).substr(2, 9).toUpperCase()}
+              {invoice.invoiceNumber}
             </p>
           </div>
           <div className="text-right">
@@ -259,6 +268,16 @@ export function DetailedInvoiceTemplate({ invoice, unit, property }: any) {
             <p className="text-gray-700">
               Month: {monthName}/{invoice.year}
             </p>
+            {invoice.dueDate && (
+              <p className="text-gray-700">
+                Due Date:{" "}
+                {new Date(invoice.dueDate).toLocaleDateString("en-GB", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })}
+              </p>
+            )}
             <p className="text-gray-700">Property: {property.name}</p>
           </div>
         </div>
@@ -505,169 +524,34 @@ export function InvoiceGenerator({ onClose }: { onClose: () => void }) {
     });
   };
 
+  // Ledger-derived types pull their lines from the tenant summary via the pure
+  // builder in lib/invoice-items; manual types (custom/maintenance/late-fees)
+  // use the items entered in the form instead.
+  const MANUAL_ITEM_TYPES = ["custom", "maintenance", "late-fees"];
+
   const fetchInvoiceItemsByLeaseCode = async (
     leaseCode: string,
     year: number,
     month: number,
     invoiceType: string,
     selectedUtility?: string
-  ) => {
+  ): Promise<BuiltInvoice> => {
     try {
       const response = await fetch(`/api/invoiceItems?leaseCode=${leaseCode}`);
       if (!response.ok) throw new Error("Failed to fetch invoice items");
 
       const data = await response.json();
-      const monthName = new Date(year, month - 1).toLocaleString("default", {
-        month: "long",
-      });
-      const monthData = data.summary?.[year]?.[monthName];
-
-      if (!monthData) return [];
-
-      const items = [];
-
-      // Handle different invoice types
-      switch (invoiceType) {
-        case "Comprehensive":
-          // 1. Rent (always included)
-          items.push({
-            id: Math.random(),
-            description: "Monthly Rent",
-            amount: monthData.rentRate || 0,
-          });
-
-          // 2. Arrears (if exists)
-          const prevMonth = new Date(year, month - 2);
-          const prevMonthName = prevMonth.toLocaleString("default", {
-            month: "long",
-          });
-          const prevMonthData = data.summary?.[year]?.[prevMonthName];
-          const arrears = prevMonthData?.balance
-            ? Math.max(0, prevMonthData.balance - monthData.rentRate)
-            : 0;
-
-          if (arrears > 0) {
-            items.push({
-              id: Math.random(),
-              description: "Arrears Balance",
-              amount: arrears,
-            });
-          }
-
-          // 3. Water Charge (if usage exists)
-          if (
-            monthData.currentReading !== null &&
-            monthData.previousReading !== null &&
-            monthData.currentReading > monthData.previousReading
-          ) {
-            const usage = monthData.currentReading - monthData.previousReading;
-            const waterCost = usage * monthData.waterRate;
-            const totalWaterCharge = waterCost + (monthData.serviceCharge || 0);
-
-            items.push({
-              id: Math.random(),
-              description: `Water Charge (${monthData.previousReading} → ${monthData.currentReading})`,
-              quantity: usage,
-              rate: monthData.waterRate,
-              amount: totalWaterCharge,
-              serviceCharge: monthData.serviceCharge || 0,
-            });
-          }
-
-          // 4. Extra Charges
-          if (monthData.extraCharges) {
-            Object.entries(monthData.extraCharges).forEach(([name, amount]) => {
-              if (amount) {
-                items.push({
-                  id: Math.random(),
-                  description:
-                    name.charAt(0).toUpperCase() +
-                    name.slice(1).replace(/([A-Z])/g, " $1"),
-                  amount: Number(amount),
-                });
-              }
-            });
-          }
-          break;
-
-        case "utilities":
-          if (!selectedUtility) return [];
-
-          if (selectedUtility === "water") {
-            if (
-              monthData.currentReading !== null &&
-              monthData.previousReading !== null
-            ) {
-              const usage =
-                monthData.currentReading - monthData.previousReading;
-              const waterCost = usage * (monthData.waterRate || 0);
-              const serviceCharge = monthData.serviceCharge || 0;
-
-              return [
-                // Meter Readings
-                {
-                  id: Math.random(),
-                  description: `Previous Meter Reading (${monthData.previousReading})`,
-                  amount: 0, // Informational only
-                  isInfoItem: true, // Add this flag for display purposes
-                },
-                {
-                  id: Math.random(),
-                  description: `Current Meter Reading (${monthData.currentReading})`,
-                  amount: 0,
-                  isInfoItem: true,
-                },
-
-                // Usage Calculation
-                {
-                  id: Math.random(),
-                  description: `Water Usage (${usage} units)`,
-                  quantity: usage,
-                  rate: 0,
-                  amount: 0,
-                  isInfoItem: true,
-                },
-
-                // Rate
-                {
-                  id: Math.random(),
-                  description: `Water Rate (KSH ${monthData.waterRate}/unit)`,
-                  quantity: usage,
-                  rate: monthData.waterRate,
-                  amount: waterCost,
-                },
-
-                // Service Charge (if applicable)
-                ...(serviceCharge > 0
-                  ? [
-                      {
-                        id: Math.random(),
-                        description: "Service Charge",
-                        amount: serviceCharge,
-                      },
-                    ]
-                  : []),
-              ].filter(Boolean); // Remove any empty items
-            }
-            return []; // No valid readings
-          }
-          // Add cases for other utilities here
-          break;
-
-        // Add cases for other invoice types as needed
-        default:
-          // For custom or other types, include all items
-          items.push({
-            id: Math.random(),
-            description: "Custom Charge",
-            amount: 0, // Will be filled by user
-          });
-      }
-
-      return items;
+      const built = buildInvoiceItems(
+        data,
+        year,
+        month,
+        invoiceType,
+        selectedUtility
+      );
+      return built ?? { items: [], dueDate: null, total: 0 };
     } catch (error) {
       console.error(`Error fetching items for lease ${leaseCode}:`, error);
-      return [];
+      return { items: [], dueDate: null, total: 0 };
     }
   };
   
@@ -679,7 +563,7 @@ export function InvoiceGenerator({ onClose }: { onClose: () => void }) {
     }
 
     if (
-      invoiceData.invoiceType === "Utilities" &&
+      invoiceData.invoiceType === "utilities" &&
       !invoiceData.selectedUtility
     ) {
       toast.error("Please select a utility type");
@@ -697,19 +581,22 @@ export function InvoiceGenerator({ onClose }: { onClose: () => void }) {
 
       const invoices = await Promise.all(
         unitsToProcess.map(async (unit) => {
-          const items = await fetchInvoiceItemsByLeaseCode(
-            unit.leaseCode,
-            invoiceData.year,
-            invoiceData.month,
-            invoiceData.invoiceType,
-            invoiceData.selectedUtility
-          );
+          const built = MANUAL_ITEM_TYPES.includes(invoiceData.invoiceType)
+            ? { items: invoiceData.items, dueDate: null, total: 0 }
+            : await fetchInvoiceItemsByLeaseCode(
+                unit.leaseCode,
+                invoiceData.year,
+                invoiceData.month,
+                invoiceData.invoiceType,
+                invoiceData.selectedUtility
+              );
 
           return {
             ...invoiceData,
             unit,
             property: selectedProperty,
-            items,
+            items: built.items,
+            dueDate: built.dueDate ?? invoiceData.dueDate,
             invoiceNumber: `INV-${Date.now()
               .toString()
               .slice(-6)}-${Math.random()
@@ -965,7 +852,13 @@ export function InvoiceGenerator({ onClose }: { onClose: () => void }) {
                       <span className="hidden sm:inline">Print All</span>
                       <span className="sm:hidden">Print</span>
                     </Button>
-                    <Button>
+                    <Button
+                      onClick={() =>
+                        toast.info(
+                          "Email delivery isn't available yet — use Print or Download."
+                        )
+                      }
+                    >
                       <Send className="h-4 w-4 mr-2" />
                       <span className="hidden sm:inline">Send All</span>
                       <span className="sm:hidden">Send</span>
