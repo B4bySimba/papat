@@ -2090,6 +2090,7 @@ export class PaymentService {
     let m = new Date(lease.startDate.getFullYear(), lease.startDate.getMonth(), 1);
     let prevCumExpected = 0;
     let prevCumCollected = 0;
+    let prevMonthEnd: Date | null = null;
 
     while (m <= asOf) {
       const monthEnd = new Date(m.getFullYear(), m.getMonth() + 1, 0, 23, 59, 59, 999);
@@ -2143,7 +2144,11 @@ export class PaymentService {
         years.push(year);
       }
 
-      const paymentsInMonth = payments.filter((p) => p.date >= m && p.date <= monthEnd);
+      // Same window `collected` uses: (prevMonthEnd, monthEnd], open at -∞ on the
+      // first row. Filtering from `m` hid payments predating the opening month.
+      const paymentsInMonth = payments.filter(
+        (p) => p.date <= monthEnd && (!prevMonthEnd || p.date > prevMonthEnd),
+      );
 
       summary[year][monthNames[m.getMonth()]] = {
         expected: Math.round(monthExpected),
@@ -2173,6 +2178,7 @@ export class PaymentService {
 
       prevCumExpected = last.cumExpected;
       prevCumCollected = last.cumCollected;
+      prevMonthEnd = monthEnd;
       m = new Date(m.getFullYear(), m.getMonth() + 1, 1);
     }
 
