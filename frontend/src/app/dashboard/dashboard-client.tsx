@@ -13,7 +13,7 @@ export default function DashboardClient() {
   const [years, setYears] = useState<number[]>([]);
 
   const [view, setView] = useState<ViewType>("barChart");
-  const [year, setYear] = useState("2025");
+  const [year, setYear] = useState(String(new Date().getFullYear()));
   const [chartData, setChartData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

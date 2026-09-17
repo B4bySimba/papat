@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { useMemo, useRef, useState } from "react"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../ui/collapsible"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table"
+import { balanceTone, formatBalance } from "@/lib/utils"
 
 interface Payment {
   date: string
@@ -354,7 +355,7 @@ const handlePrint = async () => {
                           </div>
                           <div>
                             <p className="text-sm text-muted-foreground">Balance</p>
-                            <p className="font-bold text-xl text-red-600">Ksh.{entry.balance.toLocaleString()}</p>
+                            <p className={`font-bold text-xl ${balanceTone(entry.balance)}`}>{formatBalance(entry.balance)}</p>
                           </div>
                         </div>
 
@@ -425,10 +426,8 @@ const handlePrint = async () => {
                           <TableCell>{entry.waterCharge ? `Ksh.${entry.waterCharge.toLocaleString()}` : "-"}</TableCell>
                           <TableCell>Ksh.{entry.expected.toLocaleString()}</TableCell>
                           <TableCell className="text-green-600">Ksh.{entry.collected.toLocaleString()}</TableCell>
-                          <TableCell
-                            className={`font-semibold ${entry.balance > 0 ? "text-red-600" : "text-green-600"}`}
-                          >
-                            Ksh.{Math.abs(entry.balance).toLocaleString()}
+                          <TableCell className={`font-semibold ${balanceTone(entry.balance)}`}>
+                            {formatBalance(entry.balance)}
                           </TableCell>
                           <TableCell className="py-2 print:py-1">
                             {entry.payments.length > 0 ? (

@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ChevronDown, Printer, View } from "lucide-react";
 import { useMemo } from "react";
+import { balanceTone, formatBalance } from "@/lib/utils";
 
 interface Payment {
   date: string;
@@ -143,8 +144,8 @@ export default function Ledger({ data, year }: LedgerProps) {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Balance</p>
-                <p className="font-bold text-xl text-red-600">
-                  Ksh.{entry.balance.toLocaleString()}
+                <p className={`font-bold text-xl ${balanceTone(entry.balance)}`}>
+                  {formatBalance(entry.balance)}
                 </p>
               </div>
             </div>

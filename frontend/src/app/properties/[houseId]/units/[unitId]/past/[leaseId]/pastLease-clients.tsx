@@ -51,7 +51,7 @@ export default function PastLeaseClient({
   const params = useParams();
   const houseId = params.houseId as string;
   const [view, setView] = useState<ViewType>("barChart");
-  const [year, setYear] = useState("2025");
+  const [year, setYear] = useState(String(new Date().getFullYear()));
   const [chartData, setChartData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
