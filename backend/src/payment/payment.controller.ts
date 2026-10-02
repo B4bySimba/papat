@@ -14,14 +14,22 @@ export class PaymentController {
   //frontend
   // Wired to V2 (billingPeriod-driven engine) — V1 methods remain on PaymentService, unused by routes.
   @Get('summary')
-  async getManagerSummary() {
-    return this.paymentService.getManagerLevelSummaryV2();
+  async getManagerSummary(@Query('includePastTenantsData') includePastTenantsData?: string) {
+    return this.paymentService.getManagerLevelSummaryV2(includePastTenantsData === 'true');
   }
 
   @Get(':houseId/summary')
-  async getHouseSummary(@Param('houseId', HashidPipe) houseId: number) {
+  async getHouseSummary(
+    @Param('houseId', HashidPipe) houseId: number,
+    @Query('includePastTenantsData') includePastTenantsData?: string,
+  ) {
     console.log(houseId);
-    return this.paymentService.getHouseLevelSummaryV2(houseId);
+    return this.paymentService.getHouseLevelSummaryV2(houseId, includePastTenantsData === 'true');
+  }
+
+  @Get('future-dated')
+  futureDated(@Query('leaseCode') leaseCode?: string) {
+    return this.paymentService.futureDated(leaseCode);
   }
 
   @Get('le/:leaseCode/summary')

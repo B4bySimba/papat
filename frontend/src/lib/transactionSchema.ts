@@ -9,6 +9,7 @@ export const transactionSchema = z.object({
   houseId: z.string(),
   houseName: z.string(),
   date: z.string(),
+  futureDated: z.boolean().optional(),
   amount: z.number(),
   reference: z.string(),
   paymentMethod: z.string(),

@@ -3,7 +3,8 @@ import prisma from 'lib/db';
 import { Prisma } from 'generated/prisma/client';
 import { first, last } from 'rxjs';
 import { HashidService } from 'src/common/hashid/hashid.service';
-import { generateCharges, buildLedger, billingDateFor, sortSummaryMonths } from './ledger.util';
+import { generateCharges, buildLedger, billingDateFor, sortSummaryMonths, MONTH_NAMES, MonthRow, endOfLocalDay } from './ledger.util';
+import { LedgerService } from './ledger.service';
 import {
   addMonths,
   differenceInCalendarMonths,
@@ -34,6 +35,7 @@ export interface TenantLedgerEntry {
 export class PaymentService {
   constructor(
     private readonly hashidService: HashidService,
+    private readonly ledgerService: LedgerService,
   ) {}
 
   async getManagerLevelSummary() {
@@ -561,6 +563,7 @@ export class PaymentService {
       },
     });
 
+    const today = endOfLocalDay(new Date());
     return payments.map((p) => {
       const formattedDate = p.date
         ? new Date(p.date).toLocaleDateString('en-GB', {
@@ -579,6 +582,7 @@ export class PaymentService {
           p.houseId !== null ? this.hashidService.encode(p.houseId) : null,
         houseName: p.house?.name ?? null,
         date: formattedDate,
+        futureDated: p.date > today,
         amount: p.amount,
         reference: p.reference,
         paymentMethod: p.paymentMethod,
@@ -588,6 +592,33 @@ export class PaymentService {
         id: p.id ? this.hashidService.encode(p.id) : null,
       };
     });
+  }
+
+  /** Payments typed with a date after today: kept as entered, listed so someone can check the date. */
+  async futureDated(leaseCode?: string) {
+    const payments = await prisma.payment.findMany({
+      where: { date: { gt: endOfLocalDay(new Date()) }, ...(leaseCode ? { lease: { code: leaseCode } } : {}) },
+      orderBy: { date: 'asc' },
+      select: {
+        amount: true,
+        date: true,
+        cretedAt: true,
+        reference: true,
+        unit: { select: { number: true } },
+        house: { select: { name: true } },
+        lease: { select: { tenant: { select: { name: true } } } },
+      },
+    });
+
+    return payments.map((p) => ({
+      amount: p.amount,
+      date: p.date,
+      enteredOn: p.cretedAt,
+      reference: p.reference,
+      tenantName: p.lease?.tenant?.name ?? null,
+      unitNumber: p.unit?.number ?? null,
+      houseName: p.house?.name ?? null,
+    }));
   }
 
   async recent() {
@@ -2054,225 +2085,75 @@ export class PaymentService {
   // See ledger.util.ts for the pure charge/ledger functions this wraps.
   // ==========================================================================
 
-  async getTenantLevelSummaryV2(leaseCode: string) {
-    const lease = await prisma.lease.findFirst({ where: { code: leaseCode } });
-    if (!lease) {
-      throw new Error('Lease not found');
-    }
-
-    // Scoped by leaseId, not unitId — billingPeriod now makes attribution explicit,
-    // so readings belonging to a different tenancy on the same unit are correctly excluded.
-    const readings = await prisma.meterReading.findMany({
-      where: { leaseId: lease.id },
-      orderBy: { readOn: 'asc' },
-      select: { readOn: true, currentReading: true, billingPeriod: true, isMeterReset: true },
-    });
-
-    const payments = await prisma.payment.findMany({
-      where: { leaseId: lease.id },
-      orderBy: { date: 'asc' },
-    });
-
-    const now = new Date();
-    const asOf = lease.terminationDate ? new Date(lease.terminationDate) : now;
-
-    const charges = generateCharges(lease as any, readings, asOf);
-    const ledger = buildLedger(charges, payments);
-
-    const monthNames = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December',
-    ];
-
+  /** `{years, summary}` keyed by year then month name, the shape every V2 route returns. */
+  private toSummary(rows: MonthRow[]) {
     const summary: Record<number, Record<string, any>> = {};
     const years: number[] = [];
-
-    let m = new Date(lease.startDate.getFullYear(), lease.startDate.getMonth(), 1);
-    let prevCumExpected = 0;
-    let prevCumCollected = 0;
-    let prevMonthEnd: Date | null = null;
-
-    while (m <= asOf) {
-      const monthEnd = new Date(m.getFullYear(), m.getMonth() + 1, 0, 23, 59, 59, 999);
-      const pointsInMonth = ledger.filter((p) => p.date <= monthEnd);
-      const last = pointsInMonth.length ? pointsInMonth[pointsInMonth.length - 1] : { cumExpected: 0, cumCollected: 0, balance: 0 };
-
-      // "expected" = new charges this month + carried-forward balance
-      // (rentRate + waterCharge + extras + carriedBalance), not new-charges-alone.
-      // Algebraically: prevBalance + monthNewCharges = last.cumExpected - prevCumCollected.
-      const monthExpected = last.cumExpected - prevCumCollected;
-      const monthCollected = last.cumCollected - prevCumCollected;
-
-      const inMonth = (d: Date) => d >= m && d <= monthEnd;
-      // All water events dated in this month (two readings closing the same
-      // month is a data-entry anomaly, but the row must still match the ledger).
-      const waterEvents = charges.filter((c) => c.label === 'water' && inMonth(c.date));
-      const usage = waterEvents.reduce((s, c) => s + (c.meta?.usage ?? 0), 0);
-      const waterChargeTotal = waterEvents.reduce(
-        (s, c) => s + (c.meta?.waterCharge ?? 0) + (c.meta?.serviceCharge ?? 0),
-        0,
-      );
-      const serviceChargeTotal = waterEvents.reduce((s, c) => s + (c.meta?.serviceCharge ?? 0), 0);
-
-      const sumLabel = (label: string) =>
-        charges.filter((c) => c.label === label && inMonth(c.date)).reduce((s, c) => s + c.amount, 0);
-      const rentCharged = sumLabel('rent');
-      const depositCharged = sumLabel('deposit');
-      const arrearsCharged = sumLabel('arrearsbf');
-
-      const extraCharges: Record<string, number> = {};
-      for (const c of charges) {
-        if (inMonth(c.date) && !['rent', 'water', 'arrearsbf', 'deposit'].includes(c.label)) {
-          extraCharges[c.label] = c.amount;
-        }
-      }
-
-      // First month: the effective billing date can't precede the tenancy
-      // (mirrors generateCharges' max(startDate, due day) rule).
-      let billingDate = billingDateFor(m.getFullYear(), m.getMonth(), lease.rentDue);
-      const isStartMonth =
-        m.getFullYear() === lease.startDate.getFullYear() &&
-        m.getMonth() === lease.startDate.getMonth();
-      if (isStartMonth && lease.startDate > billingDate) {
-        billingDate = new Date(lease.startDate);
-      }
-      const billingDateStr = `${billingDate.getFullYear()}-${String(billingDate.getMonth() + 1).padStart(2, '0')}-${String(billingDate.getDate()).padStart(2, '0')}`;
-
-      const year = m.getFullYear();
+    for (const { year, month, ...data } of rows) {
       if (!summary[year]) {
         summary[year] = {};
         years.push(year);
       }
-
-      // Same window `collected` uses: (prevMonthEnd, monthEnd], open at -∞ on the
-      // first row. Filtering from `m` hid payments predating the opening month.
-      const paymentsInMonth = payments.filter(
-        (p) => p.date <= monthEnd && (!prevMonthEnd || p.date > prevMonthEnd),
-      );
-
-      summary[year][monthNames[m.getMonth()]] = {
-        expected: Math.round(monthExpected),
-        collected: Math.round(monthCollected),
-        balance: Math.round(last.balance),
-        usage,
-        waterCharge: waterChargeTotal,
-        serviceCharge: serviceChargeTotal,
-        rentRate: lease.rentRate,
-        rentCharged: Math.round(rentCharged),
-        billingDate: billingDateStr,
-        deposit: Math.round(depositCharged),
-        arrearsbf: Math.round(arrearsCharged),
-        waterRate: lease.waterRate,
-        previousReading: waterEvents.length ? (waterEvents[0].meta?.previousReading ?? null) : null,
-        currentReading: waterEvents.length
-          ? (waterEvents[waterEvents.length - 1].meta?.currentReading ?? null)
-          : null,
-        extraCharges,
-        payments: paymentsInMonth.map((p) => ({
-          date: p.date,
-          amount: p.amount,
-          method: p.paymentMethod,
-          reference: p.reference,
-        })),
-      };
-
-      prevCumExpected = last.cumExpected;
-      prevCumCollected = last.cumCollected;
-      prevMonthEnd = monthEnd;
-      m = new Date(m.getFullYear(), m.getMonth() + 1, 1);
+      summary[year][month] = data;
     }
-
     return { years: [...new Set(years)].sort((a, b) => b - a), summary };
   }
 
-  async getHouseLevelSummaryV2(houseId: number) {
-    const leases = await prisma.lease.findMany({
-      where: { houseId, status: 'ACTIVE' },
-      select: { code: true },
-    });
-
-    if (!leases.length) {
-      return { years: [], summary: {}, houseId, houseName: '' };
-    }
-
-    const summaries = await Promise.all(
-      leases.map((l) => this.getTenantLevelSummaryV2(l.code)),
-    );
-
-    const houseSummary = { years: [] as number[], summary: {} as Record<string, Record<string, any>> };
-
-    for (const { years, summary } of summaries) {
-      for (const year of years) {
-        if (!houseSummary.years.includes(year)) houseSummary.years.push(year);
-        if (!houseSummary.summary[year]) houseSummary.summary[year] = {};
-
-        for (const [month, data] of Object.entries(summary[year]) as [string, any][]) {
-          if (!houseSummary.summary[year][month]) {
-            houseSummary.summary[year][month] = {
-              expected: 0, collected: 0, balance: 0, usage: 0, waterCharge: 0, serviceCharge: 0, payments: [],
-            };
-          }
-          const target = houseSummary.summary[year][month];
-          target.expected += data.expected;
-          target.collected += data.collected;
-          target.balance += data.balance;
-          target.usage += data.usage;
-          target.waterCharge += data.waterCharge;
-          target.serviceCharge += data.serviceCharge;
-          target.payments.push(...data.payments);
-        }
+  /** Sums many leases into one summary. Aggregates omit `payments` — no chart reads them. */
+  private aggregate(ledgers: Iterable<MonthRow[]>) {
+    const summary: Record<number, Record<string, any>> = {};
+    const years = new Set<number>();
+    for (const rows of ledgers) {
+      for (const row of rows) {
+        years.add(row.year);
+        const months = (summary[row.year] ??= {});
+        const target = (months[row.month] ??= {
+          expected: 0, collected: 0, balance: 0, usage: 0, waterCharge: 0, serviceCharge: 0,
+        });
+        target.expected += row.expected;
+        target.collected += row.collected;
+        target.balance += row.balance;
+        target.usage += row.usage;
+        target.waterCharge += row.waterCharge;
+        target.serviceCharge += row.serviceCharge;
       }
     }
-
-    houseSummary.years.sort((a, b) => b - a);
-    houseSummary.summary = sortSummaryMonths(houseSummary.summary);
-    return houseSummary;
+    return {
+      years: [...years].sort((a, b) => b - a),
+      summary: sortSummaryMonths(summary),
+    };
   }
 
-  async getManagerLevelSummaryV2() {
-    const houses = await prisma.house.findMany({ select: { id: true } });
+  private async ledgersForHouse(houseId: number, includePastTenantsData = false) {
+    const leases = await prisma.lease.findMany({
+      where: includePastTenantsData ? { houseId } : { houseId, status: 'ACTIVE' },
+      select: { id: true, rentRate: true, startDate: true, unit: { select: { number: true, id: true } } },
+    });
+    return { leases, ledgers: await this.ledgerService.ledgersFor(leases.map((l) => l.id)) };
+  }
 
-    const summaries = await Promise.all(
-      houses.map(async (house) => {
-        try {
-          return await this.getHouseLevelSummaryV2(house.id);
-        } catch (err) {
-          console.log(`[V2] Skipping house ${house.id}: ${err.message}`);
-          return null;
-        }
-      }),
-    );
+  async getTenantLevelSummaryV2(leaseCode: string) {
+    return this.toSummary(await this.ledgerService.ledgerForCode(leaseCode));
+  }
 
-    const cumulativeSummary: Record<number, Record<string, any>> = {};
-    const allYears = new Set<number>();
+  async getHouseLevelSummaryV2(houseId: number, includePastTenants = false) {
+    // Every lease, past and present. Filtering by status made a property's whole
+    // history change retroactively whenever a tenant vacated.
+    const leases = await prisma.lease.findMany({
+      where: { houseId },
+      select: { id: true },
+    });
+    if (!leases.length) return { years: [], summary: {}, houseId, houseName: '' };
+    const ledgers = await this.ledgerService.ledgersFor(leases.map((l) => l.id), includePastTenants);
+    return this.aggregate(ledgers.values());
+  }
 
-    for (const s of summaries) {
-      if (!s) continue;
-      for (const year of s.years) {
-        allYears.add(year);
-        if (!cumulativeSummary[year]) cumulativeSummary[year] = {};
-        for (const [month, data] of Object.entries(s.summary[year]) as [string, any][]) {
-          if (!cumulativeSummary[year][month]) {
-            cumulativeSummary[year][month] = {
-              expected: 0, collected: 0, balance: 0, usage: 0, waterCharge: 0, serviceCharge: 0, payments: [],
-            };
-          }
-          const target = cumulativeSummary[year][month];
-          target.expected += data.expected;
-          target.collected += data.collected;
-          target.balance += data.balance;
-          target.usage += data.usage;
-          target.waterCharge += data.waterCharge;
-          target.serviceCharge += data.serviceCharge;
-          target.payments.push(...data.payments);
-        }
-      }
-    }
-
-    return {
-      years: Array.from(allYears).sort((a, b) => b - a),
-      summary: sortSummaryMonths(cumulativeSummary),
-    };
+  async getManagerLevelSummaryV2(includePastTenants = false) {
+    const leases = await prisma.lease.findMany({
+      select: { id: true },
+    });
+    const ledgers = await this.ledgerService.ledgersFor(leases.map((l) => l.id), includePastTenants);
+    return this.aggregate(ledgers.values());
   }
 
   async monthlyReportV2(
@@ -2281,31 +2162,21 @@ export class PaymentService {
     year: number,
     includePastTenantsData: boolean = false,
   ) {
-    const leases = await prisma.lease.findMany({
-      where: includePastTenantsData ? { houseId } : { houseId, status: 'ACTIVE' },
-      include: { unit: { select: { number: true, id: true } } },
-    });
+    const { leases, ledgers } = await this.ledgersForHouse(houseId, includePastTenantsData);
     if (!leases.length) return [];
 
-    const leaseSummaries = await Promise.all(
-      leases.map((l) => this.getTenantLevelSummaryV2(l.code)),
-    );
-
+    const monthName = MONTH_NAMES[month - 1];
     const unitsMap: Record<string, { unitName: string; expected: number; collected: number; balance: number }> = {};
-    const monthName = new Date(year, month - 1).toLocaleString('default', { month: 'long' });
 
-    for (let i = 0; i < leases.length; i++) {
-      const lease = leases[i];
-      const data = leaseSummaries[i].summary?.[year]?.[monthName];
-      if (!data) continue;
-
-      const key = lease.unit.id;
-      if (!unitsMap[key]) {
-        unitsMap[key] = { unitName: lease.unit.number, expected: 0, collected: 0, balance: 0 };
-      }
-      unitsMap[key].expected += data.expected;
-      unitsMap[key].collected += data.collected;
-      unitsMap[key].balance += data.balance;
+    for (const lease of leases) {
+      const row = (ledgers.get(lease.id) ?? []).find((r) => r.year === year && r.month === monthName);
+      if (!row) continue;
+      const target = (unitsMap[lease.unit.id] ??= {
+        unitName: lease.unit.number, expected: 0, collected: 0, balance: 0,
+      });
+      target.expected += row.expected;
+      target.collected += row.collected;
+      target.balance += row.balance;
     }
 
     return Object.values(unitsMap).sort((a, b) => a.unitName.localeCompare(b.unitName));
@@ -2319,71 +2190,70 @@ export class PaymentService {
     includePastTenantsData: boolean = false,
   ) {
     const targetYear = year ? parseInt(year) : new Date().getFullYear();
-    const monthsOrder = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December',
-    ];
     const normalizeMonth = (val?: string) => {
       if (!val) return undefined;
       const num = parseInt(val, 10);
       if (!isNaN(num) && num >= 1 && num <= 12) return num - 1;
-      const index = monthsOrder.indexOf(val);
+      const index = MONTH_NAMES.indexOf(val);
       return index >= 0 ? index : undefined;
     };
     const startIndex = normalizeMonth(startMonth);
     const endIndex = normalizeMonth(endMonth);
 
-    const leases = await prisma.lease.findMany({
-      where: includePastTenantsData ? { houseId } : { houseId, status: 'ACTIVE' },
-      include: { unit: { select: { number: true, id: true } } },
-    });
+    const { leases, ledgers } = await this.ledgersForHouse(houseId, includePastTenantsData);
     if (!leases.length) return [];
 
-    const unitSummaries: any[] = [];
+    // One row per unit: every tenant who occupied it is summed in; Rate is the latest tenant's.
+    const units = new Map<number, any>();
 
     for (const lease of leases) {
-      const leaseSummary = await this.getTenantLevelSummaryV2(lease.code);
-      const yearData = leaseSummary.summary[targetYear];
-      if (!yearData) continue;
+      const inYear = (ledgers.get(lease.id) ?? []).filter((r) => r.year === targetYear);
+      if (!inYear.length) continue;
 
-      const months = Object.entries(yearData)
-        .sort(([a], [b]) => monthsOrder.indexOf(a) - monthsOrder.indexOf(b))
-        .filter(([month]) => {
-          const idx = monthsOrder.indexOf(month);
-          if (idx === -1) return false;
-          return (startIndex === undefined || idx >= startIndex) && (endIndex === undefined || idx <= endIndex);
-        });
+      const months = inYear.filter((r) => {
+        const idx = MONTH_NAMES.indexOf(r.month);
+        return (startIndex === undefined || idx >= startIndex) && (endIndex === undefined || idx <= endIndex);
+      });
 
       // Row "expected" is a statement (carry-forward + new charges), so summing it
       // directly would double-count every month's carry. Subtracting the previous
-      // row's balance leaves new-charges-only for every month after the first; the
-      // first row keeps its carry-in. The total then telescopes so that
-      // totalExpected - totalCollected = the window's true closing balance.
+      // row's balance leaves new-charges-only for every month after the first.
       // (docs/BILLING_MODEL.md §6)
       let totalExpected = 0;
       let totalCollected = 0;
       let prevBalance: number | null = null;
       const monthlyCollected: { month: string; collected: number }[] = [];
 
-      for (const [month, rawData] of months) {
-        const data = rawData as any;
-        totalExpected += prevBalance === null ? data.expected : data.expected - prevBalance;
-        totalCollected += data.collected;
-        prevBalance = data.balance;
-        monthlyCollected.push({ month, collected: data.collected });
+      for (const row of months) {
+        totalExpected += prevBalance === null ? row.expected : row.expected - prevBalance;
+        totalCollected += row.collected;
+        prevBalance = row.balance;
+        monthlyCollected.push({ month: row.month, collected: row.collected });
       }
 
-      unitSummaries.push({
-        unitNumber: lease.unit.number,
-        rentRate: lease.rentRate ?? null,
-        year: targetYear,
-        months: monthlyCollected,
-        totalExpected,
-        totalCollected,
-        totalBalance: totalExpected - totalCollected,
-      });
+      const unit = units.get(lease.unit.id) ?? {
+        unitNumber: lease.unit.number, rentRate: null, startDate: lease.startDate, year: targetYear,
+        months: [], totalExpected: 0, totalCollected: 0,
+      };
+      units.set(lease.unit.id, unit);
+      if (lease.startDate >= unit.startDate) {
+        unit.rentRate = lease.rentRate ?? null;
+        unit.startDate = lease.startDate;
+      }
+      unit.totalExpected += totalExpected;
+      unit.totalCollected += totalCollected;
+      for (const m of monthlyCollected) {
+        const same = unit.months.find((u) => u.month === m.month);
+        same ? (same.collected += m.collected) : unit.months.push({ ...m });
+      }
     }
 
-    return unitSummaries.sort((a, b) => a.unitNumber.localeCompare(b.unitNumber));
+    return [...units.values()]
+      .map(({ startDate, ...unit }) => ({
+        ...unit,
+        months: unit.months.sort((a, b) => MONTH_NAMES.indexOf(a.month) - MONTH_NAMES.indexOf(b.month)),
+        totalBalance: unit.totalExpected - unit.totalCollected,
+      }))
+      .sort((a, b) => a.unitNumber.localeCompare(b.unitNumber));
   }
 }

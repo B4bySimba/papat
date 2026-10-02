@@ -294,6 +294,7 @@ export function AddTenantModal({
       arrearsbf: formData.arrearsbf ? Number(formData.arrearsbf) : 0
     };
 
+    setLoading(true);
     try {
       const cleanedPayload = Object.fromEntries(
         Object.entries(payload).filter(
@@ -319,6 +320,8 @@ export function AddTenantModal({
     } catch (error: any) {
       console.error("Error creating Tenant:", error.message);
       toast.error(error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -672,7 +675,9 @@ export function AddTenantModal({
             <Button variant="outline" onClick={() => onClose(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit}>Add Tenant</Button>
+            <Button onClick={handleSubmit} disabled={loading}>
+              {loading ? "Adding..." : "Add Tenant"}
+            </Button>
           </div>
         </CardContent>
       </Card>

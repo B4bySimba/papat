@@ -218,15 +218,15 @@ export class HouseService {
       if (landlordId) {
         data.landlord = { connect: { id: landlordId } };
       } else if (landlordName) {
-        const newLandlord = await prisma.landlord.create({
-          data: {
+        // Created with the house in one write, so a repeated submit can't leave a stray landlord.
+        data.landlord = {
+          create: {
             name: landlordName,
             contact: landlordContact,
             nationalId: landlordNationalId,
             email: landlordEmail,
           },
-        });
-        data.landlord = { connect: { id: newLandlord.id } };
+        };
       } else {
         throw new BadRequestException(
           'Either landlordId or landlordName is required.',
@@ -353,7 +353,6 @@ export class HouseService {
         name: true,
         address: true,
         unit: {
-          where: { state: true },
           select: {
             id: true,
             number: true,

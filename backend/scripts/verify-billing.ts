@@ -165,23 +165,26 @@ async function verify() {
   eq('Jan waterCharge', A.January.waterCharge, 0);
   eq('Jan payments count', A.January.payments.length, 1);
 
-  eq('Feb expected', A.February.expected, 14000);
+  eq('Feb expected (no water measured yet)', A.February.expected, 10800);
   eq('Feb collected', A.February.collected, 10000);
-  eq('Feb balance', A.February.balance, 4000);
+  eq('Feb balance', A.February.balance, 800);
   eq('Feb rentCharged', A.February.rentCharged, 10000);
   eq('Feb deposit', A.February.deposit, 0);
   eq('Feb billingDate', A.February.billingDate, '2025-02-05');
-  eq('Feb usage', A.February.usage, 30);
-  eq('Feb waterCharge (incl. service)', A.February.waterCharge, 3200);
-  eq('Feb serviceCharge', A.February.serviceCharge, 200);
-  eq('Feb previousReading', A.February.previousReading, 100);
-  eq('Feb currentReading', A.February.currentReading, 130);
+  eq('Feb usage', A.February.usage, 0);
+  eq('Feb waterCharge', A.February.waterCharge, 0);
   eq('Feb extraCharges', A.February.extraCharges, { garbageFee: 300, security: 500 });
 
-  eq('Mar expected (carry 4000 + 10800 new)', A.March.expected, 14800);
+  eq('Mar expected (carry 800 + 14000 charges)', A.March.expected, 14800);
+  eq('Mar carryForward', A.March.carryForward, 800);
+  eq('Mar currentCharges (incl. February water)', A.March.currentCharges, 14000);
   eq('Mar collected', A.March.collected, 4000);
   eq('Mar balance', A.March.balance, 10800);
-  eq('Mar usage', A.March.usage, 0);
+  eq('Mar usage (February reading)', A.March.usage, 30);
+  eq('Mar waterCharge (incl. service)', A.March.waterCharge, 3200);
+  eq('Mar serviceCharge', A.March.serviceCharge, 200);
+  eq('Mar previousReading', A.March.previousReading, 100);
+  eq('Mar currentReading', A.March.currentReading, 130);
   eq('Mar billingDate', A.March.billingDate, '2025-03-05');
   eq('Mar extraCharges', A.March.extraCharges, { garbageFee: 300, security: 500 });
 
@@ -208,16 +211,23 @@ async function verify() {
   eq('Jan expected', H.January.expected, 17000);
   eq('Jan collected', H.January.collected, 17000);
   eq('Jan balance', H.January.balance, 0);
-  eq('Feb expected (A+B)', H.February.expected, 22000);
+  eq('Feb expected (A+B)', H.February.expected, 18800);
   eq('Feb collected (A+B)', H.February.collected, 18000);
-  eq('Feb balance (A+B)', H.February.balance, 4000);
-  eq('Feb usage', H.February.usage, 30);
-  eq('Feb waterCharge', H.February.waterCharge, 3200);
+  eq('Feb balance (A+B)', H.February.balance, 800);
   eq('Mar expected (A+B)', H.March.expected, 22800);
   eq('Mar collected (A+B)', H.March.collected, 4000);
   eq('Mar balance (A+B)', H.March.balance, 18800);
-  eq('Feb payments count (A+B)', H.February.payments.length, 2);
+  eq('Mar usage', H.March.usage, 30);
+  eq('Mar waterCharge', H.March.waterCharge, 3200);
   eq('months in calendar order (house)', Object.keys(H), ['January', 'February', 'March']);
+
+  // Both leases end 20 Mar 2025: the past-tenants toggle keeps their frozen numbers in later months.
+  const hp = (await get(`/payment/${houseHash}/summary?includePastTenantsData=true`)).summary['2025'];
+  eq('past tenants: Mar unchanged', [hp.March.expected, hp.March.collected, hp.March.balance], [22800, 4000, 18800]);
+  eq('past tenants: Apr expected = frozen balance', hp.April.expected, 18800);
+  eq('past tenants: Apr collected', hp.April.collected, 0);
+  eq('past tenants: Apr balance', hp.April.balance, 18800);
+  eq('past tenants: runs to December', Object.keys(hp).length, 12);
 
   // ---------- Manager ----------
   console.log('\n— Manager summary —');
@@ -266,26 +276,26 @@ async function verify() {
   const feb = buildInvoiceItems(sa, 2025, 2, 'Comprehensive')!;
   eq('Feb items', feb.items.map((i) => [i.description, i.amount]), [
     ['Monthly Rent', 10000],
-    ['Water Charge (100 → 130)', 3200],
     ['Garbage Fee', 300],
     ['Security', 500],
   ]);
   eq('Feb total = Feb expected', feb.total, A.February.expected);
-  eq('Feb water quantity/rate/serviceCharge', [feb.items[1].quantity, feb.items[1].rate, feb.items[1].serviceCharge], [30, 100, 200]);
 
   const mar = buildInvoiceItems(sa, 2025, 3, 'Comprehensive')!;
   eq('Mar items', mar.items.map((i) => [i.description, i.amount]), [
     ['Monthly Rent', 10000],
-    ['Arrears Balance', 4000],
+    ['Arrears Balance', 800],
+    ['Water Charge (100 → 130)', 3200],
     ['Garbage Fee', 300],
     ['Security', 500],
   ]);
   eq('Mar total = Mar expected', mar.total, A.March.expected);
   eq('Mar dueDate', mar.dueDate, '2025-03-05');
+  eq('Mar water quantity/rate/serviceCharge', [mar.items[2].quantity, mar.items[2].rate, mar.items[2].serviceCharge], [30, 100, 200]);
 
-  const febWater = buildInvoiceItems(sa, 2025, 2, 'utilities', 'water')!;
-  eq('Feb water invoice total', febWater.total, 3200);
-  eq('Feb water billed lines', febWater.items.filter((i) => !i.isInfoItem).map((i) => [i.description, i.amount]), [
+  const marWater = buildInvoiceItems(sa, 2025, 3, 'utilities', 'water')!;
+  eq('Mar water invoice total (February usage)', marWater.total, 3200);
+  eq('Mar water billed lines', marWater.items.filter((i) => !i.isInfoItem).map((i) => [i.description, i.amount]), [
     ['Water Rate (KSH 100/unit)', 3000],
     ['Service Charge', 200],
   ]);

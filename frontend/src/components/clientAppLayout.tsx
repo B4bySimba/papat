@@ -5,13 +5,16 @@ import { usePathname } from "next/navigation";
 import { SidebarProvider } from "./ui/sidebar";
 import AppSidebar from "./Sidebar";
 import Header from "./Header";
-import { AddPropertyWizard } from "./forms/add-property-wizard";
-import { AddUnitSlideout } from "./forms/add-unit-slideout";
-import { AddTenantModal } from "./forms/add-tenant-modal";
-import { LogPaymentFloating } from "./forms/log-payment-floating";
-import { AddMeterReadingInline } from "./forms/add-meter-readings-inline";
-import { ReportsGenerator } from "./forms/reports-generator";
-import { InvoiceGenerator } from "./forms/invoice-generator";
+import dynamic from "next/dynamic";
+
+// Loaded on open, not on first paint — the invoice generator alone pulls in html2canvas and jsPDF.
+const AddPropertyWizard = dynamic(() => import("./forms/add-property-wizard").then((m) => m.AddPropertyWizard));
+const AddUnitSlideout = dynamic(() => import("./forms/add-unit-slideout").then((m) => m.AddUnitSlideout));
+const AddTenantModal = dynamic(() => import("./forms/add-tenant-modal").then((m) => m.AddTenantModal));
+const LogPaymentFloating = dynamic(() => import("./forms/log-payment-floating").then((m) => m.LogPaymentFloating));
+const AddMeterReadingInline = dynamic(() => import("./forms/add-meter-readings-inline").then((m) => m.AddMeterReadingInline));
+const ReportsGenerator = dynamic(() => import("./forms/reports-generator").then((m) => m.ReportsGenerator));
+const InvoiceGenerator = dynamic(() => import("./forms/invoice-generator").then((m) => m.InvoiceGenerator));
 
 const hiddenRoutes = ["/login", "/register", "/forgot-password"];
 

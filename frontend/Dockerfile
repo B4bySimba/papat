@@ -27,7 +27,11 @@ RUN pnpm build
 FROM node:22-alpine AS runner
 WORKDIR /app
 
+# Pages pick the default year on the server; without tzdata TZ silently means UTC
+# and the server and browser can disagree across New Year.
+RUN apk add --no-cache tzdata
 ENV NODE_ENV=production
+ENV TZ=Africa/Nairobi
 
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs

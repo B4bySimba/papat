@@ -44,7 +44,7 @@ type ReadingRow = {
   unit: string;
   meterType: string;
   reading: string;
-  billingPeriod: string; // "YYYY-MM", empty = unassigned — filled in manually, never auto-suggested
+  billingPeriod: string; // "YYYY-MM" the reading closes; required unless it's an opening reading
   periodStatus: "suggested" | "opening-reading" | "no-lease-found" | "unset";
   isMeterReset: boolean;
 };
@@ -105,13 +105,14 @@ export function AddMeterReadingInline({ onClose }: { onClose: () => void }) {
     });
   };
 
-  const isRowIncomplete = (r: ReadingRow) => !r.property || !r.unit || !r.reading;
+  const isRowIncomplete = (r: ReadingRow) =>
+    !r.property || !r.unit || !r.reading || (!r.billingPeriod && r.periodStatus !== "opening-reading");
   const isFormValid = readings.length > 0 && !readings.some(isRowIncomplete);
 
   const handleSubmit = async () => {
     setSubmitted(true);
     if (!isFormValid) {
-      toast.error("Please fill in property, unit and reading for every row.");
+      toast.error("Please fill in property, unit, reading and month for every row.");
       return;
     }
 
@@ -134,7 +135,8 @@ export function AddMeterReadingInline({ onClose }: { onClose: () => void }) {
       });
 
       if (!res.ok) {
-        throw new Error("Failed to save meter readings.");
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.error || "Failed to save meter readings.");
       }
 
       await res.json();

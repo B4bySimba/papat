@@ -60,6 +60,7 @@ interface PropertyFormData {
 export function AddPropertyWizard({ onClose }: { onClose: () => void }) {
   const [landlords, setLandlords] = useState<LandlordData[]>([]);
   const [loadingLandlords, setLoadingLandlords] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     const fetchLandlords = async () => {
@@ -349,6 +350,7 @@ export function AddPropertyWizard({ onClose }: { onClose: () => void }) {
     }
     
     console.log(payload);
+    setSubmitting(true);
     try {
       const res = await fetch("/api/properties", {
         method: "POST",
@@ -371,6 +373,8 @@ export function AddPropertyWizard({ onClose }: { onClose: () => void }) {
       }, 1000);
     } catch (error) {
       console.error("Failed to add property:", error);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -982,7 +986,9 @@ export function AddPropertyWizard({ onClose }: { onClose: () => void }) {
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Button>
               ) : (
-                <Button onClick={handleSubmit}>Add Property</Button>
+                <Button onClick={handleSubmit} disabled={submitting}>
+                  {submitting ? "Adding..." : "Add Property"}
+                </Button>
               )}
             </div>
           </div>

@@ -48,28 +48,20 @@ export default function Ledger({ data, year }: LedgerProps) {
   const transformedData = useMemo(() => {
     if (!data || data.length === 0) return [];
 
-    let carryForward = 0;
-    return data.map((entry, index) => {
-      const currentCharges = (entry.expected || 0) - (entry.waterCharge || 0) - carryForward;
-      const newEntry: LedgerEntry = {
-        year: parseInt(year),
-        month: entry.month,
-        carryForward,
-        currentCharges,
-        expected: entry.expected,
-        collected: entry.collected || 0,
-        balance: entry.balance || 0,
-        usage: entry.usage,
-        waterCharge: entry.waterCharge,
-        extraCharges: entry.extraCharges || {},
-        payments: entry.payments || [],
-      };
-
-      // Update carry forward for next month
-      carryForward = newEntry.balance;
-
-      return newEntry;
-    });
+    // From the backend, so January carries December's balance in instead of restarting at 0.
+    return data.map((entry): LedgerEntry => ({
+      year: parseInt(year),
+      month: entry.month,
+      carryForward: entry.carryForward || 0,
+      currentCharges: entry.currentCharges || 0,
+      expected: entry.expected,
+      collected: entry.collected || 0,
+      balance: entry.balance || 0,
+      usage: entry.usage,
+      waterCharge: entry.waterCharge,
+      extraCharges: entry.extraCharges || {},
+      payments: entry.payments || [],
+    }));
   }, [data, year]);
 
   const handlePrint = () => {

@@ -55,6 +55,7 @@ interface Props {
   setTenantSheetOpen: (val: boolean) => void;
   refreshTenant: () => void;
   onUpdateTenant: (updatedTenant: any) => void;
+  ledgerData: any[];
 }
 
 export default function UnitCards({
@@ -66,6 +67,7 @@ export default function UnitCards({
   setTenantSheetOpen,
   refreshTenant,
   onUpdateTenant,
+  ledgerData,
 }: Props) {
   const [moveSheetOpen, setMoveSheetOpen] = useState(false);
   const availableUnits = [
@@ -78,7 +80,6 @@ export default function UnitCards({
   const [editMode, setEditMode] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [ledgerData, setLedgerData] = useState<any[]>([]);
 
   const [deleting, setDeleting] = useState(false);
 
@@ -196,23 +197,6 @@ export default function UnitCards({
   const totalBills = charges.reduce((sum, val) => sum + (val > 0 ? val : 0), 0);
   // console.log(tenant)
 
-  useEffect(() => {
-    if (tenant?.leaseCode) {
-      fetch(`/api/payment/ledger?leaseCode=${tenant.leaseCode}`)
-        .then((res) => {
-          if (!res.ok) throw new Error("Failed to fetch ledger data");
-          return res.json();
-        })
-        .then((data) => {
-          setLedgerData(data.data || []);
-        })
-        .catch((err) => {
-          console.error("Failed to load ledger data", err);
-          toast.error("Failed to load ledger data");
-        });
-    }
-  }, [tenant?.leaseCode]);
-  
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
       {/* � Tenant Info — opens Sheet */}
@@ -578,6 +562,8 @@ export default function UnitCards({
 
                             toast.success("Arrears updated");
                             setEditingArrears(false);
+                            // Arrears carry through every later month, so reload the ledger.
+                            refreshTenant();
                           } catch (err) {
                             toast.error((err as Error).message);
                           } finally {

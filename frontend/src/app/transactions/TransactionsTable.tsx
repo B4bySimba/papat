@@ -54,7 +54,19 @@ export function TransactionsTable({ data, onDelete, onSubmitEdit }: Props) {
   const columns: DataTableProps<Transaction>["columns"] = [
     { key: "tenantName", label: "Tenant" },
     { key: "tenantContact", label: "Contact" },
-    { key: "date", label: "Date" },
+    {
+      key: "date",
+      label: "Date",
+      render: (value: string, tx: Transaction) =>
+        tx.futureDated ? (
+          <span className="flex items-center gap-2">
+            {value}
+            <Badge variant="destructive">Future date</Badge>
+          </span>
+        ) : (
+          value
+        ),
+    },
     { key: "reference", label: "Reference" },
     { key: "paymentMethod", label: "Method" },
     {

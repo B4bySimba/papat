@@ -2,14 +2,15 @@
 
 import DashboardCards from "@/app/dashboard/dashboard-cards";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import HouseYearSelector from "./house-year-selector";
 import HouseCards from "./house-cards";
 import HouseArea from "./house-area";
-import { SkeletonChart } from "@/components/skeleton/chart";
 import HouseBar from "./house-bar";
+import { defaultYear, hasData, yearRows, Summary } from "@/lib/summary";
 import RecentPayments from "./recent-payments";
 import MaintenanceRequests from "./maintenance-requests";
+import PastTenantsToggle from "@/components/PastTenantsToggle";
 import { Button } from "@/components/ui/button";
 import { Edit, Trash2 } from "lucide-react";
 import {
@@ -29,56 +30,25 @@ import { SkeletonHouseList } from "@/components/skeleton/houseList";
 
 type ViewType = "barChart" | "areaChart";
 
-interface Props {
+interface Props extends Summary {
   houseId: string;
   house: any;
+  pastTenants: boolean;
 }
 
 export default function HousePageClient({
   house: initialHouse,
   houseId,
+  years,
+  summary,
+  pastTenants,
 }: Props) {
-  const [years, setYears] = useState<number[]>([]);
-
   const [house, setHouse] = useState<any>(initialHouse);
   const [view, setView] = useState<ViewType>("barChart");
-  const [year, setYear] = useState(String(new Date().getFullYear()));
-  const [chartData, setChartData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  
-  useEffect(() => {
-    console.log("dsdsds", house);
-  }, []);
+  const [year, setYear] = useState(() => defaultYear(years));
 
-  useEffect(() => {
-    setLoading(true);
-    setError(null);
-
-    fetch(`/api/payment/summary?year=${year}&houseId=${houseId}`)
-      .then((res) => {
-        if (!res.ok) throw new Error(`Server returned ${res.status}`);
-        return res.json();
-      })
-      .then(({ years, chartData }) => {
-        setYears(years);
-        setChartData(chartData);
-      })
-      .catch((err) => {
-        console.error(err);
-        setError("Failed to load chart data");
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, [year, houseId]);
-  
-  const hasValidData =
-    chartData.length > 1 ||
-    (chartData.length === 1 &&
-      Object.values(chartData[0]).some(
-        (v) => typeof v === "number" && v !== 0
-      ));
+  const chartData = useMemo(() => yearRows(summary, year), [summary, year]);
+  const hasValidData = hasData(chartData);
 
   const [editMode, setEditMode] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -204,21 +174,17 @@ export default function HousePageClient({
             </TabsTrigger>
           </TabsList>
         </Tabs>
-        <HouseYearSelector year={year} setYear={setYear} years={years} />
+        <div className="flex flex-wrap items-center gap-4">
+          <PastTenantsToggle checked={pastTenants} />
+          <HouseYearSelector year={year} setYear={setYear} years={years} />
+        </div>
       </div>
 
-      {loading && <SkeletonChart />}
-      {error && <div className="text-red-600">{error}</div>}
-
-      {!loading && !error && (
-        <>
-          {view === "barChart" && (
-            <HouseBar data={chartData} year={year} noData={!hasValidData} />
-          )}
-          {view === "areaChart" && (
-            <HouseArea data={chartData} year={year} noData={!hasValidData} />
-          )}
-        </>
+      {view === "barChart" && (
+        <HouseBar data={chartData} year={year} noData={!hasValidData} />
+      )}
+      {view === "areaChart" && (
+        <HouseArea data={chartData} year={year} noData={!hasValidData} />
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">

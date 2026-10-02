@@ -24,6 +24,7 @@ import {
 import { cn } from "@/lib/utils";
 import { AsyncCombobox } from "../AsyncCombobox";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"; // New import for Tabs
 
 // Combobox Component (internal to this file)
@@ -101,6 +102,7 @@ export function LogPaymentFloating({
   onClose: () => void;
   leaseCode?: string;
 }) {
+  const router = useRouter();
   const [formData, setFormData] = useState({
     tenant: "",
     property: "",
@@ -155,6 +157,8 @@ export function LogPaymentFloating({
 
       toast.success("The payment was recorded successfully.");
 
+      // Re-runs the server components so the chart, ledger and balances reflect it.
+      router.refresh();
       setIsSuccess(true);
       setTimeout(() => {
         onClose();

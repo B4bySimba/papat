@@ -2,8 +2,7 @@
 
 import DashboardCards from "@/app/dashboard/dashboard-cards";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useEffect, useState } from "react";
-import { SkeletonChart } from "@/components/skeleton/chart";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Edit, Trash2, User, View } from "lucide-react";
 import {
@@ -32,29 +31,33 @@ import { AddTenantModal } from "@/components/forms/add-tenant-modal";
 import RecentPayments from "./recent-payments";
 import MaintenanceRequests from "../../maintenance-requests";
 import { LedgerModal } from "@/components/charts/LedgerModular";
+import { allRows, defaultYear, hasData, yearRows, Summary } from "@/lib/summary";
+import FutureDatedPayments, { FutureDatedPayment } from "@/components/FutureDatedPayments";
 
 type ViewType = "barChart" | "areaChart" | "ledger";
 
-interface Props {
+interface Props extends Summary {
   unitId: string;
   tenant: any;
+  futurePayments: FutureDatedPayment[];
 }
 
 export default function UnitPageClient({
   unitId,
   tenant: initialTenant,
+  years,
+  summary,
+  futurePayments,
 }: Props) {
-  const [years, setYears] = useState<number[]>([]);
-  const [ledgerData, setLedgerData] = useState<any[]>([]);
   const [ledgerOpen, setLedgerOpen] = useState(false);
 
   const params = useParams();
   const houseId = params.houseId as string;
   const [view, setView] = useState<ViewType>("barChart");
-  const [year, setYear] = useState(String(new Date().getFullYear()));
-  const [chartData, setChartData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [year, setYear] = useState(() => defaultYear(years));
+
+  const chartData = useMemo(() => yearRows(summary, year), [summary, year]);
+  const ledgerData = useMemo(() => allRows(summary), [summary]);
 
   const [loading1, setLoading1] = useState(false);
   const [error1, setError1] = useState<string | null>(null);
@@ -69,64 +72,13 @@ export default function UnitPageClient({
   const router = useRouter();
   const leaseCode = tenant?.data?.leaseCode;
 
-  useEffect(() => {
-    if (leaseCode) {
-      // Load chart data
-      setLoading(true);
-      fetch(`/api/payment/lease-summary?leaseCode=${leaseCode}&year=${year}`)
-        .then((res) => {
-          if (!res.ok) throw new Error(`Server returned ${res.status}`);
-          return res.json();
-        })
-        .then(({ years, chartData }) => {
-          setYears(years);
-          setChartData(chartData);
-        })
-        .catch((err) => {
-          console.error(err);
-          setError("Failed to load chart data");
-        })
-        .finally(() => {
-          setLoading(false);
-        });
-
-      // Load ledger data
-      fetch(`/api/payment/ledger?leaseCode=${leaseCode}`)
-        .then((res) => {
-          if (!res.ok) throw new Error("Failed to fetch ledger data");
-          return res.json();
-        })
-        .then((data) => {
-          setLedgerData(data.data || []);
-        })
-        .catch((err) => {
-          console.error("Failed to load ledger data", err);
-          toast.error("Failed to load ledger data");
-        });
-    }
-  }, [year, leaseCode]);
-
   const isVacant = tenant === null || tenant?.message === "Unit is Vacant";
   const isNotFound = tenant.message === "Unit does not exist";
 
-  const hasValidData =
-    chartData.length > 1 ||
-    (chartData.length === 1 &&
-      Object.values(chartData[0]).some(
-        (v) => typeof v === "number" && v !== 0
-      ));
+  const hasValidData = hasData(chartData);
 
-  const refreshTenant = () => {
-    fetch(`/api/tenant/byUnitId/${unitId}`)
-      .then((res) => res.json())
-      .then((json) => {
-        if (!json?.data?.leaseCode) {
-          toast.error("Invalid tenant data returned from server.");
-          return;
-        }
-        setTenant(json);
-      });
-  };
+  // Re-runs the server component, so the summary, chart and ledger all refresh together.
+  const refreshTenant = () => router.refresh();
 
   if (isNotFound) {
     return (
@@ -332,6 +284,7 @@ export default function UnitPageClient({
 
   return (
     <div className="space-y-6">
+      <FutureDatedPayments payments={futurePayments} />
       <UnitCards
         houseId={houseId}
         unitId={unitId}
@@ -341,6 +294,7 @@ export default function UnitPageClient({
         message={tenant?.message}
         refreshTenant={refreshTenant}
         onUpdateTenant={(updated) => setTenant(updated)}
+        ledgerData={ledgerData}
       />
 
       <div className="flex justify-between flex-wrap items-center gap-4">
@@ -361,31 +315,24 @@ export default function UnitPageClient({
         <UnitYearSelector year={year} setYear={setYear} years={years} />
       </div>
 
-      {loading && <SkeletonChart />}
-      {error && <div className="text-red-600">{error}</div>}
-
-      {!loading && !error && (
+      {view === "barChart" && (
+        <UnitBar data={chartData} year={year} noData={!hasValidData} />
+      )}
+      {view === "areaChart" && (
+        <UnitArea data={chartData} year={year} noData={!hasValidData} />
+      )}
+      {view === "ledger" && (
         <>
-          {view === "barChart" && (
-            <UnitBar data={chartData} year={year} noData={!hasValidData} />
-          )}
-          {view === "areaChart" && (
-            <UnitArea data={chartData} year={year} noData={!hasValidData} />
-          )}
-          {view === "ledger" && (
-            <>
-              <div className="flex justify-end mb-4 no-print sticky top-0 bg-white z-50 border-b p-1">
-                <Button
-                  className="flex items-center gap-2"
-                  onClick={() => setLedgerOpen(true)}
-                >
-                  <View className="h-4 w-4" />
-                  View Full Ledger
-                </Button>
-              </div>
-              <UnitLedger data={chartData} year={year} noData={!hasValidData} />
-            </>
-          )}
+          <div className="flex justify-end mb-4 no-print sticky top-0 bg-white z-50 border-b p-1">
+            <Button
+              className="flex items-center gap-2"
+              onClick={() => setLedgerOpen(true)}
+            >
+              <View className="h-4 w-4" />
+              View Full Ledger
+            </Button>
+          </div>
+          <UnitLedger data={chartData} year={year} noData={!hasValidData} />
         </>
       )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">

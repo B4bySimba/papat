@@ -42,6 +42,7 @@ export function AddUnitSlideout({
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
@@ -58,12 +59,14 @@ export function AddUnitSlideout({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
 
     if (!validate()) {
       toast.error("Please fill in all required fields.");
       return;
     }
 
+    setSubmitting(true);
     try {
       const res = await fetch("/api/units/create", {
         method: "POST",
@@ -98,6 +101,8 @@ export function AddUnitSlideout({
     } catch (error: any) {
       console.error("Error creating unit:", error.message);
       toast.error(error.message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -313,8 +318,8 @@ export function AddUnitSlideout({
             >
               Cancel
             </Button>
-            <Button onClick={handleSubmit} className="flex-1">
-              Add Unit
+            <Button onClick={handleSubmit} className="flex-1" disabled={submitting}>
+              {submitting ? "Adding..." : "Add Unit"}
             </Button>
           </div>
         </div>

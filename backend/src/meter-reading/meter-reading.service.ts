@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import { Prisma } from 'generated/prisma/client';
 import { HashidService } from 'src/common/hashid/hashid.service';
 import prisma from 'lib/db';
+import { formatMonth, parseMonth } from 'src/payment/ledger.util';
 
 @Injectable()
 export class MeterReadingService {
@@ -163,11 +164,13 @@ export class MeterReadingService {
       return { lease, billingPeriod: null, isMeterReset: false, status: 'opening-reading' };
     }
 
-    const day = readOn.getUTCDate();
+    // Local, not UTC: ledger.util reads billingPeriod with local getters, so deriving it
+    // in UTC puts the mid-month cutoff hours off and, west of Greenwich, the wrong month.
+    const day = readOn.getDate();
     const billingPeriod =
       day <= 15
-        ? new Date(Date.UTC(readOn.getUTCFullYear(), readOn.getUTCMonth() - 1, 1))
-        : new Date(Date.UTC(readOn.getUTCFullYear(), readOn.getUTCMonth(), 1));
+        ? new Date(readOn.getFullYear(), readOn.getMonth() - 1, 1)
+        : new Date(readOn.getFullYear(), readOn.getMonth(), 1);
 
     let isMeterReset = false;
     if (currentReading !== undefined) {
@@ -191,19 +194,29 @@ export class MeterReadingService {
     const { billingPeriod, status } = await this.resolveBillingContext(unitId, readOn, reading);
     return {
       status,
-      billingPeriod: billingPeriod ? billingPeriod.toISOString().slice(0, 7) : null, // "YYYY-MM"
+      billingPeriod: billingPeriod ? formatMonth(billingPeriod) : null,
     };
   }
 
   /**
    * Creates readings, attaching them to the lease/tenant active on that date.
-   * If the caller supplies an explicit `billingPeriod`/`isMeterReset` (from the
-   * form, after the user confirmed or overrode the suggestion), that's used as-is.
-   * Otherwise falls back to auto-resolving via the same shared logic the
-   * suggestion endpoint uses. Sequential (not $transaction) because reset
-   * detection can depend on readings created earlier in the same batch.
+   * The month a reading closes (`billingPeriod`) is required, except for an
+   * opening reading. Sequential (not $transaction) because reset detection can
+   * depend on readings created earlier in the same batch.
    */
   async createMany(readings: any[]) {
+    for (const r of readings) {
+      if (r.billingPeriod) continue;
+      const { status } = await this.resolveBillingContext(
+        this.hashidservice.decode(r.unitId),
+        new Date(),
+        Number(r.currentReading),
+      );
+      if (status !== 'opening-reading') {
+        throw new BadRequestException('Pick the month ("For Month") for every reading.');
+      }
+    }
+
     const created: Awaited<ReturnType<typeof prisma.meterReading.create>>[] = [];
 
     for (const r of readings) {
@@ -214,38 +227,33 @@ export class MeterReadingService {
       const readOn = new Date();
       const currentReading = Number(r.currentReading);
 
-      let lease: Awaited<ReturnType<typeof prisma.lease.findFirst>>;
-      let billingPeriod: Date | null;
-      let isMeterReset: boolean;
+      const resolved = await this.resolveBillingContext(unitId, readOn, currentReading);
+      const lease = resolved.lease;
+      const billingPeriod = r.billingPeriod ? parseMonth(r.billingPeriod) : null;
+      const isMeterReset = r.isMeterReset ?? resolved.isMeterReset;
 
-      if (r.billingPeriod !== undefined || r.isMeterReset !== undefined) {
-        // Explicit values from the form — still need `lease` to connect tenant/lease relations.
-        const resolved = await this.resolveBillingContext(unitId, readOn, currentReading);
-        lease = resolved.lease;
-        billingPeriod = r.billingPeriod ? new Date(`${r.billingPeriod}-01T00:00:00.000Z`) : null;
-        isMeterReset = r.isMeterReset ?? resolved.isMeterReset;
-      } else {
-        const resolved = await this.resolveBillingContext(unitId, readOn, currentReading);
-        lease = resolved.lease;
-        billingPeriod = resolved.billingPeriod;
-        isMeterReset = resolved.isMeterReset;
-      }
-
-      const row = await prisma.meterReading.create({
-        data: {
-          currentReading,
-          readOn,
-          billingPeriod,
-          isMeterReset,
-          unit: { connect: { id: unitId } },
-          house: { connect: { id: houseId } },
-          ...(lease
-            ? {
-                lease: { connect: { id: lease.id } },
-                tenant: { connect: { id: lease.tenantId } },
-              }
-            : {}),
-        },
+      const row = await prisma.$transaction(async (tx) => {
+        // Locks the unit so a repeated submit waits here and then sees the first save.
+        await tx.$queryRaw`SELECT 1 FROM "Unit" WHERE id = ${unitId} FOR UPDATE`;
+        if (billingPeriod && (await tx.meterReading.findFirst({ where: { unitId, billingPeriod, currentReading } }))) {
+          throw new ConflictException(`Reading ${currentReading} for that month is already saved.`);
+        }
+        return tx.meterReading.create({
+          data: {
+            currentReading,
+            readOn,
+            billingPeriod,
+            isMeterReset,
+            unit: { connect: { id: unitId } },
+            house: { connect: { id: houseId } },
+            ...(lease
+              ? {
+                  lease: { connect: { id: lease.id } },
+                  tenant: { connect: { id: lease.tenantId } },
+                }
+              : {}),
+          },
+        });
       });
       created.push(row);
     }

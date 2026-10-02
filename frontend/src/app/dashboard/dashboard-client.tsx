@@ -1,51 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import YearSelector from "./year-selector";
-import { SkeletonChart } from "@/components/skeleton/chart";
 import Dashboardbar from "./dashboard-bar";
 import Dashboardarea from "./dashboard-area";
+import PastTenantsToggle from "@/components/PastTenantsToggle";
+import { defaultYear, hasData, yearRows, Summary } from "@/lib/summary";
 
 type ViewType = "barChart" | "areaChart";
 
-export default function DashboardClient() {
-  const [years, setYears] = useState<number[]>([]);
-
+export default function DashboardClient({ years, summary, pastTenants }: Summary & { pastTenants: boolean }) {
   const [view, setView] = useState<ViewType>("barChart");
-  const [year, setYear] = useState(String(new Date().getFullYear()));
-  const [chartData, setChartData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [year, setYear] = useState(() => defaultYear(years));
 
-  useEffect(() => {
-    setLoading(true);
-    setError(null);
-
-    fetch(`/api/dashboard/summary?year=${year}`)
-      .then((res) => {
-        if (!res.ok) throw new Error(`Server returned ${res.status}`);
-        return res.json();
-      })
-      .then(({ years, chartData }) => {
-        setYears(years);
-        setChartData(chartData);
-      })
-      .catch((err) => {
-        console.error(err);
-        setError("Failed to load chart data");
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, [year]);
-    
-  const hasValidData =
-    chartData.length > 1 ||
-    (chartData.length === 1 &&
-      Object.values(chartData[0]).some(
-        (v) => typeof v === "number" && v !== 0
-      ));
+  const chartData = useMemo(() => yearRows(summary, year), [summary, year]);
+  const hasValidData = hasData(chartData);
 
   return (
     <div className="space-y-4">
@@ -70,26 +40,17 @@ export default function DashboardClient() {
             </TabsTrigger>
           </TabsList>
         </Tabs>
-        <YearSelector year={year} setYear={setYear} years={years} />
+        <div className="flex flex-wrap items-center gap-4">
+          <PastTenantsToggle checked={pastTenants} />
+          <YearSelector year={year} setYear={setYear} years={years} />
+        </div>
       </div>
 
-      {loading ? (
-        <SkeletonChart />
-      ) : error ? (
-        <div className="text-red-600">{error}</div>
-      ) : (
-        <>
-          {view === "barChart" && (
-            <Dashboardbar data={chartData} year={year} noData={!hasValidData} />
-          )}
-          {view === "areaChart" && (
-            <Dashboardarea
-              data={chartData}
-              year={year}
-              noData={!hasValidData}
-            />
-          )}
-        </>
+      {view === "barChart" && (
+        <Dashboardbar data={chartData} year={year} noData={!hasValidData} />
+      )}
+      {view === "areaChart" && (
+        <Dashboardarea data={chartData} year={year} noData={!hasValidData} />
       )}
     </div>
   );

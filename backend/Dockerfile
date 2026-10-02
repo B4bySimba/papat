@@ -29,7 +29,11 @@ RUN pnpm build
 FROM node:22-alpine AS runner
 WORKDIR /app
 
+# The ledger buckets months with local date functions, so the process timezone is
+# part of the billing rules. Alpine has no tzdata, without which TZ silently means UTC.
+RUN apk add --no-cache tzdata
 ENV NODE_ENV=production
+ENV TZ=Africa/Nairobi
 
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/node_modules ./node_modules

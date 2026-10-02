@@ -11,6 +11,16 @@ for (const key of REQUIRED_ENV) {
   }
 }
 
+// The billing engine buckets months with local date functions, so the wrong zone
+// silently moves money between months. -180 is Africa/Nairobi (UTC+3).
+if (new Date(2026, 0, 1).getTimezoneOffset() !== -180) {
+  console.error(
+    `Process timezone must be Africa/Nairobi (TZ="${process.env.TZ ?? 'unset'}" resolved to ` +
+      `UTC offset ${-new Date(2026, 0, 1).getTimezoneOffset()} minutes). Aborting.`,
+  );
+  process.exit(1);
+}
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.use((req, res, next) => {

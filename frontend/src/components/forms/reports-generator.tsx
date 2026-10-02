@@ -894,8 +894,7 @@ export function ReportsGenerator({ onClose }: { onClose: () => void }) {
                     <Separator />
 
                     {(selectedCategory === "financial" ||
-                      (selectedCategory === "property" &&
-                        selectedReportType !== "yearly-report")) && (
+                      selectedCategory === "property") && (
                       <div className="flex items-center space-x-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
                         <Checkbox
                           id="past-tenants"
@@ -1039,8 +1038,7 @@ export function ReportsGenerator({ onClose }: { onClose: () => void }) {
                         </div>
                       </div>
                       {(selectedCategory === "financial" ||
-                        (selectedCategory === "property" &&
-                          selectedReportType !== "yearly-report")) && (
+                        selectedCategory === "property") && (
                         <div className="flex justify-between text-xs">
                           <span>Include past tenants data:</span>
                           <span>

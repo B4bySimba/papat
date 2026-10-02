@@ -33,6 +33,8 @@ export async function GET(req: Request) {
         transformed.push({
           year: parseInt(year),
           month,
+          carryForward: details.carryForward || 0,
+          currentCharges: details.currentCharges || 0,
           expected: details.expected || 0,
           collected: details.collected || 0,
           balance: details.balance || 0,

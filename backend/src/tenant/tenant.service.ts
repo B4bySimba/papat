@@ -123,6 +123,11 @@ export class TenantService {
           include: { house: true },
         });
 
+        // The update above locks the unit row, so a repeated submit waits here and is then refused.
+        if (await tx.lease.count({ where: { unitId, status: 'ACTIVE' } })) {
+          throw new HttpException('This unit already has an active tenant.', HttpStatus.CONFLICT);
+        }
+
         const tenantCode = `${unit.code}t${unit.tenantSequence}`;
         const leaseCount = await tx.lease.count({
           where: { houseId: unit.houseId },
@@ -240,6 +245,7 @@ export class TenantService {
       };
     } catch (error) {
       console.error('Failed to create tenant:', error);
+      if (error instanceof HttpException) throw error;
       throw new HttpException(
         'Tenant creation failed. Please try again.',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -651,6 +657,10 @@ export class TenantService {
           data: { tenantSequence: { increment: 1 } },
           include: { house: true },
         });
+
+        if (await tx.lease.count({ where: { unitId, status: 'ACTIVE' } })) {
+          throw new Error('This unit already has an active tenant.');
+        }
 
         const tenantCode = `${unit.code}t${unit.tenantSequence}`; //to be code
         const rateHistoryCode = `${tenantCode}r1`; //rateHistoiryCoode

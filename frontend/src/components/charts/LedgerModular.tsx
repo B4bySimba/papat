@@ -43,26 +43,21 @@ export function LedgerModal({ name, data, open, onOpenChange }: LedgerModalProps
   const transformedData = useMemo(() => {
     if (!data || data.length === 0) return []
 
-    let carryForward = 0
-    return data.map((entry) => {
-      const currentCharges = (entry.expected || 0) - (entry.waterCharge || 0) - carryForward
-      const newEntry: LedgerEntry = {
-        year: entry.year,
-        month: entry.month,
-        carryForward,
-        currentCharges,
-        expected: entry.expected,
-        collected: entry.collected || 0,
-        balance: entry.balance || 0,
-        usage: entry.usage,
-        waterCharge: entry.waterCharge,
-        extraCharges: entry.extraCharges || {},
-        payments: entry.payments || [],
-      }
-
-      carryForward = newEntry.balance
-      return newEntry
-    })
+    // carryForward/currentCharges come from the backend — deriving them here a second
+    // time is how the two views used to disagree.
+    return data.map((entry): LedgerEntry => ({
+      year: entry.year,
+      month: entry.month,
+      carryForward: entry.carryForward || 0,
+      currentCharges: entry.currentCharges || 0,
+      expected: entry.expected,
+      collected: entry.collected || 0,
+      balance: entry.balance || 0,
+      usage: entry.usage,
+      waterCharge: entry.waterCharge,
+      extraCharges: entry.extraCharges || {},
+      payments: entry.payments || [],
+    }))
   }, [data])
 
 const handlePrint = async () => {

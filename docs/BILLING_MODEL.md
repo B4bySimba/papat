@@ -28,53 +28,54 @@ truth. Nothing is stored derived; there is no "posted invoice" table.
 `moveInDate`, `endDate`, `Unit.deposit` are **not** used by V2 billing
 (the lease's own `deposit` is the one charged).
 
-## 2. The billing date
+## 2. Posting date and due date
 
-Every month `M` of a lease has one **billing date**:
+A month's charges **post on the 1st** (the start date in the lease's first
+month), so the ledger, charts and reports show them from the 1st. Each month
+also has a **due date**:
 
 ```
 billingDate(M) = day `rentDue` of M, clamped into the month
 ```
 
 - `rentDue = 31` in February → Feb 28/29. `rentDue` missing/0/invalid → day 1.
-- **First month only:** the billing date can't precede the tenancy:
-  `firstBillingDate = max(startDate, billingDate(startMonth))`.
-  (Lease starts Jan 15, rentDue 5 → first rent is due Jan 15, not Jan 5.)
+- **First month only:** the due date can't precede the tenancy:
+  `max(startDate, billingDate(startMonth))`.
+- The due date decides two things: an invoice is due on it (and says its
+  amount is as of that date), and a tenant who **moves out before it** is not
+  charged that month's rent/extras.
 
-Rent is **in advance**: month M's rent pays for M and is due on M's billing date.
+Rent is **in advance**: month M's rent pays for M.
 
 ## 3. Charge events (`generateCharges`)
 
-The lease is unrolled into dated charge events:
+The lease is unrolled into dated charge events, each posted only once its date
+is reached (`≤ asOf`):
 
 | Charge | Date | Months | Amount |
 |---|---|---|---|
 | `arrearsbf` | `startDate` | once | `lease.arrearsbf` |
 | `deposit` | `startDate` | once | `lease.deposit` |
-| `rent` | `billingDate(M)` (first month: `max(startDate, …)`) | every month, **only if the date has been reached** (`≤ asOf`) | `rentRate` |
-| extras: `garbageFee`, `additional`, `added_field_1..7` | same date as that month's rent | every month **except the first**, same `≤ asOf` gate | each price |
-| `water` | `billingDate(month of billingPeriod)` | one per closing reading whose `billingPeriod` is after the first month | `usage × waterRate + (usage > 0 ? serviceCharge : 0)` |
+| `rent` | the 1st of M (first month: `startDate`) | every month, unless the tenant moved out before M's due date | `rentRate` |
+| extras: `garbageFee`, `additional`, `added_field_1..7` | same date as that month's rent | every month **except the first**, same rule | each price |
+| `water` | the 1st of the month **after** the reading's `billingPeriod`, or the move-out date if earlier | one per closing reading whose `billingPeriod` is in or after the first month | `usage × waterRate + (usage > 0 ? serviceCharge : 0)` |
 
-Water usage walk (readings sorted by `billingPeriod`, baseline
-`onEntryMeterReading`):
+Water used in month M can only be measured once M is over, so it is billed with
+M+1's charges: the first month has no water, and its usage bills in month 2.
+Usage walk (readings sorted by `billingPeriod`, baseline `onEntryMeterReading`):
 - `isMeterReset` → no charge; reading becomes the new baseline.
 - otherwise `usage = max(0, currentReading − previousBaseline)`, then the
   reading becomes the baseline.
+- `billingPeriod` before the tenancy → no charge, but it sets the baseline.
 - `billingPeriod: null` readings (opening reading, unclassified) never bill.
-- Water has **no** `≤ asOf` gate: measured consumption is always owed, even if
-  the lease terminated before that month's billing date.
+- At move-out, water not yet billed posts on the move-out date; after that the
+  tenant's maths halts.
 
-**The gate is the whole point of `rentDue`.** Until a month's billing date
-arrives, that month's rent/extras do not exist in the ledger:
+Examples (rentDue 5): on July 3 July's charges are already in the ledger, so a
+July 2 payment simply reduces what is owed. A lease terminated July 4 is never
+charged July rent (left before it came due); its measured water still bills.
 
-- On July 3 with rentDue 5, the tenant owes nothing for July yet; a payment
-  made July 2 shows as **credit (negative balance)** until July 5 posts the
-  charges. That is correct, intended display behavior.
-- A lease terminated July 4 with rentDue 5 is never billed July rent at all
-  (left before it came due). Its measured water still bills.
-
-First month = `arrearsbf + deposit + rent` only — no extras, no water. This
-month-1 rule is inherited V1 behavior, deliberately preserved.
+First month = `arrearsbf + deposit + rent` only — no extras, no water.
 
 ## 4. The ledger (`buildLedger`)
 
@@ -89,8 +90,7 @@ balance      = cumExpected − cumCollected   (positive = owed, negative = credi
 ```
 
 The balance at any date is the tenant's true position **as of that date** —
-this is what "does the tenant owe money" means, and it is marked from billing
-dates, not month boundaries.
+this is what "does the tenant owe money" means.
 
 ## 5. Monthly summary rows (`getTenantLevelSummaryV2`)
 
@@ -103,28 +103,40 @@ at end of M−1:
 | `expected` | `last.cumExpected − prevCumCollected` = **carry-forward balance + charges posted in M**. This is a *statement* ("pay this to be square"), not new-charges-only. |
 | `collected` | `last.cumCollected − prevCumCollected` |
 | `balance` | `last.balance` — cumulative position at month end. Always `expected − collected` of the same row. |
-| `usage`, `waterCharge`, `serviceCharge`, `previousReading`, `currentReading` | Sum/ends of **all** water events dated in M (`waterCharge` includes the service charge) |
-| `rentCharged` | rent actually posted in M (0 while gated / terminated-before-due) |
-| `billingDate` | `YYYY-MM-DD` of M's billing date |
+| `carryForward` | previous row's `balance` |
+| `currentCharges` | `expected − carryForward`: everything posted in M, water included |
+| `usage`, `waterCharge`, `serviceCharge`, `previousReading`, `currentReading` | Sum/ends of **all** water events dated in M — i.e. last month's usage (`waterCharge` includes the service charge) |
+| `rentCharged` | rent actually posted in M (0 when the tenant left before the due date) |
+| `billingDate` | `YYYY-MM-DD` of M's due date |
 | `deposit`, `arrearsbf` | posted amounts, first month only (0 otherwise) |
 | `extraCharges` | `{label: amount}` of extras posted in M |
 | `payments` | raw payments dated in M |
 
-Identity to remember: `expected(M) = balance(M−1) + newCharges(M)` and
+Identity to remember: `expected(M) = carryForward(M) + currentCharges(M)` and
 `balance(M) = expected(M) − collected(M)`.
 
-A month with nothing posted yet (current month before its billing date) shows
-`expected = carry-forward`, `collected = payments so far`, possibly negative
-balance. Numbers are `Math.round`ed at the row level.
+Numbers are `Math.round`ed at the row level. With fixed inputs, advancing the
+clock only appends months; a month never changes once it appears (tested).
+Payments dated after the last row (typed in the future) are not counted; they
+are listed by `GET payment/future-dated` and flagged on the dashboard, the
+tenant's page and the transactions list.
 
 ## 6. Aggregations
 
 - **House** (`getHouseLevelSummaryV2`): per month, sum `expected/collected/
-  balance/usage/waterCharge/serviceCharge` over ACTIVE leases; concat payments.
+  balance/usage/waterCharge/serviceCharge` over every lease that has a row that
+  month (a tenant's rows stop at move-out). `includePastTenantsData=true` runs a
+  past tenant's rows on to today with no new charges, so what they still owe —
+  and anything they pay later — stays in the totals (the "Include past tenants"
+  switch on the dashboard and property pages).
 - **Manager** (`getManagerLevelSummaryV2`): same, over all houses.
 - **Monthly report** (`monthlyReportV2`): the tenant row of (year, month) per
   unit — statement semantics (expected includes carry).
-- **Yearly report** (`yearlyReportV2`) per unit over a month window `[f..l]`:
+- **Reports** list one row per unit: the current tenant by default, every
+  tenant who occupied the unit with `includePastTenantsData=true` (Rate is then
+  the latest tenant's rent).
+- **Yearly report** (`yearlyReportV2`) per lease over a month window `[f..l]`,
+  then summed per unit:
   - `totalExpected = expected(f) + Σ_{m>f} (expected(m) − balance(m−1))`
     = carry into the window + new charges inside it,
   - `totalCollected = Σ collected(m)`,
@@ -139,7 +151,7 @@ balance. Numbers are `Math.round`ed at the row level.
 |---|---|---|
 | Dashboard charts | `GET payment/summary` | month rows: expected/collected/balance |
 | House charts | `GET payment/:houseId/summary` | same |
-| Unit bar/area/ledger + LedgerModal | `GET payment/le/:code/summary` | full rows; frontend derives `carryForward = prev balance`, `currentCharges = expected − waterCharge − carryForward` |
+| Unit bar/area/ledger + LedgerModal | `GET payment/le/:code/summary` | full rows, including `carryForward` and `currentCharges` |
 | Reports pages | `report/monthly`, `report/yearly` | as in §6 |
 | Invoice generator | `/api/invoiceItems` → tenant summary | see §8 |
 
@@ -161,7 +173,8 @@ balance. Numbers are `Math.round`ed at the row level.
 5. **Extras** — every entry of `extraCharges`.
 
 **Invariant: invoice total = the row's `expected`** (to rounding). The
-generated invoice *is* the month's statement. `dueDate = billingDate`.
+generated invoice *is* the month's statement. `dueDate = billingDate`, and the
+printed invoice states that the expected amount is as of that due date.
 Invoice numbers are generated once per invoice (`invoiceNumber`) and displayed
 verbatim — never re-randomized at render.
 
@@ -177,22 +190,22 @@ serviceCharge 200, opening reading 100. Reading logged Mar 3 (130) closing
 asOf = Mar 20 2025.
 
 Charge events: arrears 2 000 + deposit 5 000 + rent 10 000 @ **Jan 15**;
-rent+garbage+security @ **Feb 5**; water 30 × 100 + 200 = 3 200 @ **Feb 5**;
-rent+garbage+security @ **Mar 5**.
+rent+garbage+security @ **Feb 1**; rent+garbage+security @ **Mar 1**, plus
+February's water 30 × 100 + 200 = 3 200 @ **Mar 1**.
 
-| Month | expected | collected | balance | notes |
-|---|---|---|---|---|
-| Jan | 17 000 | 17 000 | 0 | first month: arrears+deposit+rent, no extras/water |
-| Feb | 14 000 | 10 000 | 4 000 | 10 000+300+500+3 200; Feb 4 payment was credit until Feb 5 |
-| Mar | 14 800 | 4 000 | 10 800 | carry 4 000 + 10 000 + 800 |
+| Month | carry fwd | charges | expected | collected | balance | notes |
+|---|---|---|---|---|---|---|
+| Jan | 0 | 17 000 | 17 000 | 17 000 | 0 | first month: arrears+deposit+rent, no extras/water |
+| Feb | 0 | 10 800 | 10 800 | 10 000 | 800 | 10 000+300+500; no water measured yet |
+| Mar | 800 | 14 000 | 14 800 | 4 000 | 10 800 | 10 000+300+500 + February water 3 200 |
 
-Yearly totals: expected 17 000 + 14 000 + (14 800 − 4 000) = **41 800**
+Yearly totals: expected 17 000 + 10 800 + (14 800 − 800) = **41 800**
 (= every shilling actually charged), collected 31 000, balance **10 800** ✓.
 
 Invoices: Jan = rent 10 000 + deposit 5 000 + arrearsbf 2 000 = 17 000 ✓;
-Feb = rent + garbage + security + water = 14 000 ✓;
-Mar = rent + arrears 4 000 + garbage + security = 14 800 ✓ — each equals the
-row's `expected`.
+Feb = rent + garbage + security = 10 800 ✓;
+Mar = rent + arrears 800 + water + garbage + security = 14 800 ✓ — each equals
+the row's `expected`.
 
 ## 10. Edge-case ledger
 
@@ -200,10 +213,11 @@ row's `expected`.
 |---|---|
 | `rentDue` > days in month | clamped to last day |
 | `rentDue` null/0/negative | day 1 (legacy behavior) |
-| payment before billing date | credit; negative balance until the date passes |
-| termination before month's billing date | that month's rent/extras never billed; water still bills |
+| payment early in the month | reduces what is owed; the month's charges posted on the 1st |
+| termination before month's due date | that month's rent/extras never billed; unbilled water posts on the move-out date |
 | meter reset | no usage billed across the swap; reading becomes baseline |
-| reading with `billingPeriod` inside the first month | dropped (month-1 rule) |
+| reading with `billingPeriod` inside the first month | billed with month 2's charges |
+| payment dated in the future | not counted; flagged for someone to check the date |
 | two readings closing the same month | both bill; row water fields are the sums |
 | negative usage (typo, not flagged reset) | clamped to 0 |
 | same-day charge + payment | charge sorts first; payment settles it |
@@ -211,7 +225,8 @@ row's `expected`.
 
 ## 11. Timezone convention
 
-`billingPeriod` is stored as UTC month-start. Billing dates are constructed
-with the month/day taken from that UTC value in server-local time, and the
-month walk uses server-local boundaries throughout — consistent as long as the
-server runs a single timezone (docker: UTC). `readOn` never affects money.
+The engine reads every date with server-local getters, so the backend must run
+in Africa/Nairobi (`main.ts` refuses to start otherwise; Docker sets `TZ`).
+`billingPeriod` is written as the Nairobi month start (`parseMonth`). The meter
+form requires it ("For Month") except for an opening reading. `readOn` never
+affects money.

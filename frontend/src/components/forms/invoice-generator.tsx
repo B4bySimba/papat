@@ -221,6 +221,17 @@ export function MinimalInvoiceTemplate({ invoice, unit, property }: any) {
             .toLocaleString()}
         </span>
       </div>
+      {invoice.dueDate && (
+        <p className="text-xs text-gray-500 mt-2">
+          Expected amount as of the due date,{" "}
+          {new Date(invoice.dueDate).toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })}
+          .
+        </p>
+      )}
       <div className="text-center text-gray-500 text-xs mt-6">
         <p>Papat Properties Limited | +254 700 123 456</p>
       </div>
@@ -332,6 +343,17 @@ export function DetailedInvoiceTemplate({ invoice, unit, property }: any) {
               .toLocaleString()}
           </span>
         </div>
+        {invoice.dueDate && (
+          <p className="text-xs text-purple-100 mt-1">
+            Expected amount as of the due date,{" "}
+            {new Date(invoice.dueDate).toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })}
+            .
+          </p>
+        )}
       </div>
       {invoice.notes && (
         <div className="bg-white/70 backdrop-blur p-4 rounded-lg border border-purple-200 mb-4">
