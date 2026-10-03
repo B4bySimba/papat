@@ -229,6 +229,19 @@ async function verify() {
   eq('past tenants: Apr balance', hp.April.balance, 18800);
   eq('past tenants: runs to December', Object.keys(hp).length, 12);
 
+  // A bar's breakdown: one row per tenancy, adding up to that month of the house summary.
+  const units = (q: string) => get(`/payment/${houseHash}/summary/units?year=2025&${q}`);
+  const cols = (rows: any[]) => rows.map((u) => [u.unitNumber, u.expected, u.collected, u.balance]);
+  eq('March by unit (sums to 22800 / 4000 / 18800)', cols(await units('month=March')), [
+    ['A1', 14800, 4000, 10800],
+    ['B2', 8000, 0, 8000],
+  ]);
+  eq('April by unit, past tenants on (sums to 18800)', cols(await units('month=April&includePastTenantsData=true')), [
+    ['A1', 10800, 0, 10800],
+    ['B2', 8000, 0, 8000],
+  ]);
+  eq('April by unit, past tenants off', (await units('month=April')).length, 0);
+
   // ---------- Manager ----------
   console.log('\n== Manager summary ==');
   const ms = await get('/payment/summary');

@@ -27,6 +27,8 @@ interface BarChartCardProps {
   chartKeys: (keyof ChartConfig)[];
   chartConfig: ChartConfig;
   xDataKey: string;
+  onMonthClick?: (month: string) => void;
+  clickHint?: string;
 }
 
 export default function BarChartCard({
@@ -36,6 +38,8 @@ export default function BarChartCard({
   chartKeys,
   chartConfig,
   xDataKey,
+  onMonthClick,
+  clickHint,
 }: BarChartCardProps) {
   const [activeChart, setActiveChart] = React.useState(chartKeys[0]);
 
@@ -89,7 +93,18 @@ export default function BarChartCard({
           config={chartConfig}
           className="aspect-auto h-[250px] w-full"
         >
-          <BarChart accessibilityLayer data={data}>
+          <BarChart
+            accessibilityLayer
+            data={data}
+            className={onMonthClick ? "cursor-pointer" : undefined}
+            onClick={
+              onMonthClick &&
+              ((state) => {
+                const month = state.activeLabel ?? data[Number(state.activeIndex)]?.[xDataKey];
+                if (month !== undefined) onMonthClick(String(month));
+              })
+            }
+          >
             <CartesianGrid vertical={false} />
             <XAxis
               dataKey={xDataKey}
@@ -101,7 +116,12 @@ export default function BarChartCard({
             <ChartTooltip
               cursor={false}
               content={(props: any) => (
-                <ChartTooltipContent {...(props as CustomTooltipProps)} hideIndicator hideLabel />
+                <ChartTooltipContent
+                  {...(props as CustomTooltipProps)}
+                  hideIndicator
+                  hideLabel
+                  footer={clickHint && <p className="text-muted-foreground border-t pt-1.5">{clickHint}</p>}
+                />
               )}
             />
             {chartKeys.map((key) => (

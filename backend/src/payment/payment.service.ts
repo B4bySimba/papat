@@ -2148,6 +2148,29 @@ export class PaymentService {
     return this.aggregate(ledgers.values());
   }
 
+  /** The house chart's month split by tenancy: same leases, same ledgers, so the rows add up to the bar. */
+  async getHouseMonthUnitsV2(houseId: number, year: number, month: string, includePastTenants = false) {
+    const leases = await prisma.lease.findMany({
+      where: { houseId },
+      select: { id: true, status: true, unit: { select: { number: true } }, tenant: { select: { name: true } } },
+    });
+    const ledgers = await this.ledgerService.ledgersFor(leases.map((l) => l.id), includePastTenants);
+    const rows: { unitNumber: string; tenantName: string; movedOut: boolean; expected: number; collected: number; balance: number }[] = [];
+    for (const lease of leases) {
+      const row = ledgers.get(lease.id)?.find((r) => r.year === year && r.month === month);
+      if (!row) continue;
+      rows.push({
+        unitNumber: lease.unit.number,
+        tenantName: lease.tenant.name,
+        movedOut: lease.status !== 'ACTIVE',
+        expected: row.expected,
+        collected: row.collected,
+        balance: row.balance,
+      });
+    }
+    return rows.sort((a, b) => a.unitNumber.localeCompare(b.unitNumber, undefined, { numeric: true }));
+  }
+
   async getManagerLevelSummaryV2(includePastTenants = false) {
     const leases = await prisma.lease.findMany({
       select: { id: true },

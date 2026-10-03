@@ -11,6 +11,7 @@ import { defaultYear, hasData, yearRows, Summary } from "@/lib/summary";
 import RecentPayments from "./recent-payments";
 import MaintenanceRequests from "./maintenance-requests";
 import PastTenantsToggle from "@/components/PastTenantsToggle";
+import MonthUnitsDialog from "./month-units-dialog";
 import { Button } from "@/components/ui/button";
 import { Edit, Trash2 } from "lucide-react";
 import {
@@ -46,6 +47,7 @@ export default function HousePageClient({
   const [house, setHouse] = useState<any>(initialHouse);
   const [view, setView] = useState<ViewType>("barChart");
   const [year, setYear] = useState(() => defaultYear(years));
+  const [unitsMonth, setUnitsMonth] = useState<string | null>(null);
 
   const chartData = useMemo(() => yearRows(summary, year), [summary, year]);
   const hasValidData = hasData(chartData);
@@ -181,8 +183,15 @@ export default function HousePageClient({
       </div>
 
       {view === "barChart" && (
-        <HouseBar data={chartData} year={year} noData={!hasValidData} />
+        <HouseBar data={chartData} year={year} noData={!hasValidData} onMonthClick={setUnitsMonth} />
       )}
+      <MonthUnitsDialog
+        houseId={houseId}
+        year={year}
+        month={unitsMonth}
+        pastTenants={pastTenants}
+        onClose={() => setUnitsMonth(null)}
+      />
       {view === "areaChart" && (
         <HouseArea data={chartData} year={year} noData={!hasValidData} />
       )}

@@ -32,6 +32,7 @@ type ChartContextProps = {
 
 export type CustomTooltipProps = TooltipContentProps<ValueType, NameType> & {
   className?: string;
+  footer?: React.ReactNode;
   hideLabel?: boolean;
   hideIndicator?: boolean;
   indicator?: "line" | "dot" | "dashed";
@@ -156,6 +157,7 @@ function ChartTooltipContent({
   color,
   nameKey,
   labelKey,
+  footer,
 }: CustomTooltipProps) {
   const { config } = useChart();
 
@@ -279,6 +281,7 @@ function ChartTooltipContent({
           );
         })}
       </div>
+      {footer}
     </div>
   );
 }

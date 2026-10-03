@@ -3,6 +3,7 @@ import { PaymentService, MonthTotals, TenantLedgerEntry } from './payment.servic
 import { Prisma } from 'generated/prisma/client';
 import { HashidPipe } from 'src/common/hashid/hashid.pipe';
 import { HashidService } from 'src/common/hashid/hashid.service';
+import { MONTH_NAMES } from './ledger.util';
 
 @Controller('payment')
 export class PaymentController {
@@ -25,6 +26,19 @@ export class PaymentController {
   ) {
     console.log(houseId);
     return this.paymentService.getHouseLevelSummaryV2(houseId, includePastTenantsData === 'true');
+  }
+
+  @Get(':houseId/summary/units')
+  async getHouseMonthUnits(
+    @Param('houseId', HashidPipe) houseId: number,
+    @Query('year', ParseIntPipe) year: number,
+    @Query('month') month: string,
+    @Query('includePastTenantsData') includePastTenantsData?: string,
+  ) {
+    if (!MONTH_NAMES.includes(month)) {
+      throw new HttpException('Unknown month.', HttpStatus.BAD_REQUEST);
+    }
+    return this.paymentService.getHouseMonthUnitsV2(houseId, year, month, includePastTenantsData === 'true');
   }
 
   @Get('future-dated')
