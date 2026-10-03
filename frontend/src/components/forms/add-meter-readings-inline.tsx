@@ -72,7 +72,7 @@ export function AddMeterReadingInline({ onClose }: { onClose: () => void }) {
   };
 
   // Checks whether "now" would be an opening reading or has no covering lease,
-  // purely to show a warning — never overwrites billingPeriod, which is manual-only.
+  // purely to show a warning; never overwrites billingPeriod, which is manual-only.
   const fetchSuggestion = async (row: ReadingRow) => {
     if (!row.unit) return;
     try {
@@ -86,7 +86,7 @@ export function AddMeterReadingInline({ onClose }: { onClose: () => void }) {
         prev.map((r) => (r.id === row.id ? { ...r, periodStatus: data.status } : r))
       );
     } catch {
-      // Convenience check only — silently skip on failure.
+      // Convenience check only; silently skip on failure.
     }
   };
 
@@ -306,7 +306,7 @@ export function AddMeterReadingInline({ onClose }: { onClose: () => void }) {
                     )}
                     {reading.periodStatus === "no-lease-found" && (
                       <p className="mt-1 text-[10px] text-amber-600">
-                        No lease found — pick manually
+                        No lease found. Pick manually.
                       </p>
                     )}
                   </div>

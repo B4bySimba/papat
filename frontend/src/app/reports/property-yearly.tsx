@@ -64,6 +64,9 @@ export function PropertyYearly({
       currency: "KES",
     }).format(value);
   };
+  // A negative balance is a credit: green on screen and in the exported copies.
+  const balanceColor = (value: number) => (value < 0 ? "text-green-600" : "text-orange-600");
+  const creditStyle = (value: number) => (value < 0 ? ' style="color: #16a34a"' : "");
 
   // Transform and validate data to match component expectations
   const transformedData = useMemo(() => {
@@ -342,7 +345,7 @@ export function PropertyYearly({
               </div>
               <div class="summary-item">
                 <div>Total Balance</div>
-                <div class="summary-value balance">${formatCurrency(
+                <div class="summary-value balance"${creditStyle(totals.balance)}>${formatCurrency(
                   totals.balance
                 )}</div>
               </div>
@@ -379,7 +382,7 @@ export function PropertyYearly({
                     )
                     .join("")}
                   <td class="text-right">${formatCurrency(row.total)}</td>
-                  <td class="text-right">${formatCurrency(row.balance)}</td>
+                  <td class="text-right"${creditStyle(row.balance)}>${formatCurrency(row.balance)}</td>
                 </tr>
               `
                 )
@@ -397,7 +400,7 @@ export function PropertyYearly({
                   )
                   .join("")}
                 <td class="text-right">${formatCurrency(totals.total)}</td>
-                <td class="text-right">${formatCurrency(totals.balance)}</td>
+                <td class="text-right"${creditStyle(totals.balance)}>${formatCurrency(totals.balance)}</td>
               </tr>
             </tbody>
           </table>
@@ -506,7 +509,7 @@ export function PropertyYearly({
                       )
                       .join("")}
                     <td class="text-right">${formatCurrency(row.total)}</td>
-                    <td class="text-right">${formatCurrency(row.balance)}</td>
+                    <td class="text-right"${creditStyle(row.balance)}>${formatCurrency(row.balance)}</td>
                   </tr>
                 `
                   )
@@ -524,7 +527,7 @@ export function PropertyYearly({
                     )
                     .join("")}
                   <td class="text-right">${formatCurrency(totals.total)}</td>
-                  <td class="text-right">${formatCurrency(totals.balance)}</td>
+                  <td class="text-right"${creditStyle(totals.balance)}>${formatCurrency(totals.balance)}</td>
                 </tr>
               </tbody>
             </table>
@@ -674,7 +677,7 @@ export function PropertyYearly({
                       <TableCell className="text-right text-green-600 font-medium">
                         {formatCurrency(row.total)}
                       </TableCell>
-                      <TableCell className="text-right text-orange-600 font-medium">
+                      <TableCell className={`text-right font-medium ${balanceColor(row.balance)}`}>
                         {formatCurrency(row.balance)}
                       </TableCell>
                     </TableRow>
@@ -698,7 +701,7 @@ export function PropertyYearly({
                     <TableCell className="text-right text-green-600">
                       {formatCurrency(totals.total)}
                     </TableCell>
-                    <TableCell className="text-right text-orange-600">
+                    <TableCell className={`text-right ${balanceColor(totals.balance)}`}>
                       {formatCurrency(totals.balance)}
                     </TableCell>
                   </TableRow>
@@ -753,7 +756,7 @@ export function PropertyYearly({
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-600">
+              <div className={`text-2xl font-bold ${balanceColor(totals.balance)}`}>
                 {formatCurrency(totals.balance)}
               </div>
             </CardContent>

@@ -91,7 +91,7 @@ async function seed() {
       houseId: house.id, unitId: unitA.id, tenantId: tenantA.id,
       moveInDate: new Date(2025, 0, 15),
       startDate: new Date(2025, 0, 15),
-      terminationDate: new Date(2025, 2, 20), // asOf pin — status stays ACTIVE
+      terminationDate: new Date(2025, 2, 20), // asOf pin; status stays ACTIVE
       rentDue: 5,
       rentRate: 10000,
       deposit: 5000,
@@ -109,7 +109,7 @@ async function seed() {
   });
 
   // Lease A readings: opening (billingPeriod null) + closing for February,
-  // logged Mar 3 — attribution must follow billingPeriod, not readOn.
+  // logged Mar 3; attribution must follow billingPeriod, not readOn.
   await prisma.meterReading.create({
     data: {
       currentReading: 100, readOn: new Date(2025, 0, 15), billingPeriod: null,
@@ -148,7 +148,7 @@ async function verify() {
   };
 
   // ---------- Tenant A ----------
-  console.log('\n— Tenant A summary (LA1) —');
+  console.log('\n== Tenant A summary (LA1) ==');
   const sa = await get('/payment/le/LA1/summary');
   eq('years', sa.years, [2025]);
   const A = sa.summary['2025'];
@@ -189,7 +189,7 @@ async function verify() {
   eq('Mar extraCharges', A.March.extraCharges, { garbageFee: 300, security: 500 });
 
   // ---------- Tenant B ----------
-  console.log('\n— Tenant B summary (LB1) —');
+  console.log('\n== Tenant B summary (LB1) ==');
   const sb = await get('/payment/le/LB1/summary');
   const B = sb.summary['2025'];
   eq('Feb expected', B.February.expected, 8000);
@@ -205,7 +205,7 @@ async function verify() {
   // ---------- House ----------
   const houseRow = await prisma.house.findFirst({ where: { name: 'Verify House' } });
   const houseHash = hashids.encode(houseRow!.id);
-  console.log(`\n— House summary (${houseHash}) —`);
+  console.log(`\n== House summary (${houseHash}) ==`);
   const hs = await get(`/payment/${houseHash}/summary`);
   const H = hs.summary['2025'];
   eq('Jan expected', H.January.expected, 17000);
@@ -230,7 +230,7 @@ async function verify() {
   eq('past tenants: runs to December', Object.keys(hp).length, 12);
 
   // ---------- Manager ----------
-  console.log('\n— Manager summary —');
+  console.log('\n== Manager summary ==');
   const ms = await get('/payment/summary');
   const M = ms.summary['2025'];
   eq('Mar expected', M.March.expected, 22800);
@@ -238,7 +238,7 @@ async function verify() {
   eq('months in calendar order (manager)', Object.keys(M), ['January', 'February', 'March']);
 
   // ---------- Monthly report ----------
-  console.log('\n— Monthly report (March 2025) —');
+  console.log('\n== Monthly report (March 2025) ==');
   const mr = await get(`/payment/report/monthly/${houseHash}?year=2025&month=3`);
   eq('rows', mr, [
     { unitName: 'A1', expected: 14800, collected: 4000, balance: 10800 },
@@ -246,7 +246,7 @@ async function verify() {
   ]);
 
   // ---------- Yearly report ----------
-  console.log('\n— Yearly report (2025) —');
+  console.log('\n== Yearly report (2025) ==');
   const yr = await get(`/payment/report/yearly/${houseHash}?year=2025`);
   const yrA = yr.find((r: any) => r.unitNumber === 'A1');
   const yrB = yr.find((r: any) => r.unitNumber === 'B2');
@@ -263,7 +263,7 @@ async function verify() {
   eq('B2 totalBalance', yrB.totalBalance, 8000);
 
   // ---------- Invoice builder against live JSON ----------
-  console.log('\n— Invoice items (lease A live summary) —');
+  console.log('\n== Invoice items (lease A live summary) ==');
   const jan = buildInvoiceItems(sa, 2025, 1, 'Comprehensive')!;
   eq('Jan items', jan.items.map((i) => [i.description, i.amount]), [
     ['Monthly Rent', 10000],
@@ -300,7 +300,7 @@ async function verify() {
     ['Service Charge', 200],
   ]);
 
-  // January-of-next-year arrears lookup (cross-year path) — synthetic summary.
+  // January-of-next-year arrears lookup (cross-year path): synthetic summary.
   const synthetic = {
     summary: {
       2025: { December: { balance: 1234 } },
@@ -320,7 +320,7 @@ async function verify() {
   ]);
   eq('cross-year total = expected', janNext.total, 11234);
 
-  console.log(`\n${checks - failures}/${checks} checks passed${failures ? ` — ${failures} FAILED` : ''}`);
+  console.log(`\n${checks - failures}/${checks} checks passed${failures ? `, ${failures} FAILED` : ''}`);
   process.exit(failures ? 1 : 0);
 }
 

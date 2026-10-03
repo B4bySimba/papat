@@ -8,7 +8,7 @@ generated/
 .env.*.local
 *.log
 
-# Stray local artifacts — plaintext DB creds and raw Postgres dumps (contain
+# Stray local artifacts: plaintext DB creds and raw Postgres dumps (contain
 # real tenant/payment PII). Never commit these; flagged to user, not deleted.
 backend/env
 backend/backend/

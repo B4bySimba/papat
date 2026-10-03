@@ -18,7 +18,7 @@ WORKDIR /app
 COPY . .
 
 # prisma.config.ts requires DATABASE_URL to be set (it throws otherwise), but
-# `prisma generate` only reads the schema — it never connects. This placeholder
+# `prisma generate` only reads the schema; it never connects. This placeholder
 # is build-time only (.env is .dockerignore'd); the real value is injected by
 # docker-compose at container runtime.
 ENV DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder"

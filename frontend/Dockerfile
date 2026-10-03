@@ -16,7 +16,7 @@ RUN npm install -g pnpm@10
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# next.config.ts fails fast if these are unset — real values are supplied by
+# next.config.ts fails fast if these are unset; real values are supplied by
 # docker-compose at container runtime; the build only needs them to be present.
 ENV BACKEND_API_URL="http://placeholder:3000"
 ENV JWT_SECRET="placeholder"

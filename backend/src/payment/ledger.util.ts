@@ -89,8 +89,8 @@ export function billingDateFor(
 /**
  * Pure function, no DB access. Full semantics: docs/BILLING_MODEL.md.
  *
- * Water/service-charge attribution is keyed entirely off `billingPeriod` — the
- * explicit, human-assigned "this reading closes month X" field — not `readOn`
+ * Water/service-charge attribution is keyed entirely off `billingPeriod` (the
+ * explicit, human-assigned "this reading closes month X" field), not `readOn`
  * (when it was logged) or reading order. This is what actually fixes the
  * misattribution bugs found in V1: there is no date-inference left to get wrong.
  * Readings with `billingPeriod: null` (opening/baseline readings, or anything not
@@ -101,7 +101,7 @@ export function billingDateFor(
  * first month) once that day is reached (`<= asOf`). A tenant who moves out
  * before the month's due date (`rentDue`, clamped; never before the start date)
  * is not charged that month. Water measured for month M can only be read once M
- * is over, so it posts with M+1's charges on the 1st — or on the move-out date
+ * is over, so it posts with M+1's charges on the 1st, or on the move-out date
  * when the tenant leaves before that.
  */
 export function generateCharges(
@@ -154,7 +154,7 @@ export function generateCharges(
 
   let prevReading = lease.onEntryMeterReading;
   for (const r of closingReadings) {
-    // A meter reset means the physical meter changed — there's no meaningful "usage"
+    // A meter reset means the physical meter changed: there's no meaningful "usage"
     // across the transition, so don't bill it; this reading just becomes the new baseline.
     if (r.isMeterReset) {
       prevReading = r.currentReading;
@@ -220,7 +220,7 @@ export const MONTH_NAMES = [
 /**
  * Rebuild each year's month map in calendar order. Summary objects rely on
  * string-key insertion order for display, and merging multiple leases inserts
- * months in encounter order — a lease starting in August would otherwise put
+ * months in encounter order: a lease starting in August would otherwise put
  * Aug–Dec before Jan–Jun in the charts.
  */
 export function sortSummaryMonths<T>(
@@ -271,7 +271,7 @@ const monthIndex = (d: Date) => d.getFullYear() * 12 + d.getMonth();
 
 /**
  * Pure. The whole per-lease statement: charges, ledger and one row per month.
- * Single pass — events are bucketed by month once instead of rescanning the
+ * Single pass: events are bucketed by month once instead of rescanning the
  * full history per month, which is what made long leases quadratic.
  * `rowsUntil` lets a past tenant's rows run on after move-out with no new charges.
  */

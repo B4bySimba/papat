@@ -12,7 +12,7 @@ export class PaymentController {
   ) {}
 
   //frontend
-  // Wired to V2 (billingPeriod-driven engine) — V1 methods remain on PaymentService, unused by routes.
+  // Wired to V2 (billingPeriod-driven engine). V1 methods remain on PaymentService, unused by routes.
   @Get('summary')
   async getManagerSummary(@Query('includePastTenantsData') includePastTenantsData?: string) {
     return this.paymentService.getManagerLevelSummaryV2(includePastTenantsData === 'true');

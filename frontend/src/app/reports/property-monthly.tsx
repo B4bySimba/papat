@@ -53,6 +53,9 @@ export function PropertyMonthly({
       currency: "KES",
     }).format(value);
   };
+  // A negative balance is a credit: green on screen and in the exported copies.
+  const balanceColor = (value: number) => (value < 0 ? "text-green-600" : "text-orange-600");
+  const creditStyle = (value: number) => (value < 0 ? ' style="color: #16a34a"' : "");
 
   const filteredData = useMemo(() => {
     if (!selectedUnits || selectedUnits.length === 0) {
@@ -158,7 +161,7 @@ export function PropertyMonthly({
             </div>
             <div class="summary-item">
               <div>Total Balance</div>
-              <div class="summary-value balance">${formatCurrency(
+              <div class="summary-value balance"${creditStyle(totals.balance)}>${formatCurrency(
                 totals.balance
               )}</div>
             </div>
@@ -182,7 +185,7 @@ export function PropertyMonthly({
                 <td>${row.unitName}</td>
                 <td class="text-right">${formatCurrency(row.expected)}</td>
                 <td class="text-right">${formatCurrency(row.collected)}</td>
-                <td class="text-right">${formatCurrency(row.balance)}</td>
+                <td class="text-right"${creditStyle(row.balance)}>${formatCurrency(row.balance)}</td>
               </tr>
             `
               )
@@ -191,7 +194,7 @@ export function PropertyMonthly({
               <td>TOTAL</td>
               <td class="text-right">${formatCurrency(totals.expected)}</td>
               <td class="text-right">${formatCurrency(totals.collected)}</td>
-              <td class="text-right">${formatCurrency(totals.balance)}</td>
+              <td class="text-right"${creditStyle(totals.balance)}>${formatCurrency(totals.balance)}</td>
             </tr>
           </tbody>
         </table>
@@ -266,7 +269,7 @@ export function PropertyMonthly({
                   <td>${row.unitName}</td>
                   <td class="text-right">${formatCurrency(row.expected)}</td>
                   <td class="text-right">${formatCurrency(row.collected)}</td>
-                  <td class="text-right">${formatCurrency(row.balance)}</td>
+                  <td class="text-right"${creditStyle(row.balance)}>${formatCurrency(row.balance)}</td>
                 </tr>
               `
                 )
@@ -275,7 +278,7 @@ export function PropertyMonthly({
                 <td>TOTAL</td>
                 <td class="text-right">${formatCurrency(totals.expected)}</td>
                 <td class="text-right">${formatCurrency(totals.collected)}</td>
-                <td class="text-right">${formatCurrency(totals.balance)}</td>
+                <td class="text-right"${creditStyle(totals.balance)}>${formatCurrency(totals.balance)}</td>
               </tr>
             </tbody>
           </table>
@@ -394,7 +397,7 @@ export function PropertyMonthly({
                     <TableCell className="text-right text-green-600 font-medium">
                       {formatCurrency(row.collected)}
                     </TableCell>
-                    <TableCell className="text-right text-orange-600 font-medium">
+                    <TableCell className={`text-right font-medium ${balanceColor(row.balance)}`}>
                       {formatCurrency(row.balance)}
                     </TableCell>
                   </TableRow>
@@ -407,7 +410,7 @@ export function PropertyMonthly({
                   <TableCell className="text-right text-green-600">
                     {formatCurrency(totals.collected)}
                   </TableCell>
-                  <TableCell className="text-right text-orange-600">
+                  <TableCell className={`text-right ${balanceColor(totals.balance)}`}>
                     {formatCurrency(totals.balance)}
                   </TableCell>
                 </TableRow>
@@ -449,7 +452,7 @@ export function PropertyMonthly({
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-600">
+              <div className={`text-2xl font-bold ${balanceColor(totals.balance)}`}>
                 {formatCurrency(totals.balance)}
               </div>
             </CardContent>

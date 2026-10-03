@@ -2081,7 +2081,7 @@ export class PaymentService {
   }
 
   // ==========================================================================
-  // V2 — event-ledger engine. Additive only; V1 methods above are untouched.
+  // V2: event-ledger engine. Additive only; V1 methods above are untouched.
   // See ledger.util.ts for the pure charge/ledger functions this wraps.
   // ==========================================================================
 
@@ -2099,7 +2099,7 @@ export class PaymentService {
     return { years: [...new Set(years)].sort((a, b) => b - a), summary };
   }
 
-  /** Sums many leases into one summary. Aggregates omit `payments` — no chart reads them. */
+  /** Sums many leases into one summary. Aggregates omit `payments`; no chart reads them. */
   private aggregate(ledgers: Iterable<MonthRow[]>) {
     const summary: Record<number, Record<string, any>> = {};
     const years = new Set<number>();

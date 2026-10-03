@@ -59,7 +59,7 @@ aggregate over all leases and filter at read time, with status as a dimension.
 
 Every payment stores both when the money moved (`date`) and when it was keyed in
 (`cretedAt`, sic). That is the raw material for answering "what did we believe March's
-balance was, back in March" — the question that matters when something is entered a year
+balance was, back in March": the question that matters when something is entered a year
 late. Nothing reads the second field today.
 
 ## 8. Smaller items

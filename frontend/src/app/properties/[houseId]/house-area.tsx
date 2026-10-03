@@ -17,7 +17,7 @@ export default function HouseArea({ data, year, noData }: Props) {
   return (
     <div className="relative w-full">
       <AreaChartCard
-        title={`Monthly Payment Overview — ${year}`}
+        title={`Monthly Payment Overview (${year})`}
         description="Zoom in to specific months"
         data={data}
         config={chartConfig}

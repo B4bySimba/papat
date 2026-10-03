@@ -26,7 +26,7 @@ export function yearRows(summary: Summary["summary"], year: string) {
   }));
 }
 
-/** Every year flattened, oldest first — the all-years ledger view. */
+/** Every year flattened, oldest first: the all-years ledger view. */
 export function allRows(summary: Summary["summary"]) {
   return Object.keys(summary ?? {})
     .sort((a, b) => Number(a) - Number(b))

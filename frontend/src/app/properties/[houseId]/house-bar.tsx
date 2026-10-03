@@ -19,7 +19,7 @@ export default function HouseBar({ data, year, noData }: Props) {
   return (
     <div className="relative w-full">
       <BarChartCard
-        title={`Monthly Overview — ${year}`}
+        title={`Monthly Overview (${year})`}
         description="Track expected vs collected vs balance"
         data={data}
         chartKeys={chartKeys}

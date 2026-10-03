@@ -199,7 +199,7 @@ export default function UnitCards({
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-      {/* � Tenant Info — opens Sheet */}
+      {/* � Tenant Info: opens Sheet */}
       <Sheet
         open={tenantSheetOpen}
         onOpenChange={(open) => {

@@ -16,7 +16,7 @@ export interface InvoiceLineItem {
 
 export interface BuiltInvoice {
   items: InvoiceLineItem[];
-  /** Billing date (YYYY-MM-DD) of the invoiced month — rent's due date. */
+  /** Billing date (YYYY-MM-DD) of the invoiced month: rent's due date. */
   dueDate: string | null;
   total: number;
 }

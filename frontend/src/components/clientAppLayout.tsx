@@ -7,7 +7,7 @@ import AppSidebar from "./Sidebar";
 import Header from "./Header";
 import dynamic from "next/dynamic";
 
-// Loaded on open, not on first paint — the invoice generator alone pulls in html2canvas and jsPDF.
+// Loaded on open, not on first paint: the invoice generator alone pulls in html2canvas and jsPDF.
 const AddPropertyWizard = dynamic(() => import("./forms/add-property-wizard").then((m) => m.AddPropertyWizard));
 const AddUnitSlideout = dynamic(() => import("./forms/add-unit-slideout").then((m) => m.AddUnitSlideout));
 const AddTenantModal = dynamic(() => import("./forms/add-tenant-modal").then((m) => m.AddTenantModal));

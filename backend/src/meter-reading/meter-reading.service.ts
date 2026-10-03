@@ -129,7 +129,7 @@ export class MeterReadingService {
   /**
    * Single source of truth for "which lease, which month, is this a reset."
    * Used by both the suggestion endpoint (so the form can show it before saving)
-   * and createMany (so what's actually saved matches what was suggested) — the
+   * and createMany (so what's actually saved matches what was suggested); the
    * two must never independently re-implement this, or they can drift apart.
    */
   private async resolveBillingContext(
@@ -222,7 +222,7 @@ export class MeterReadingService {
     for (const r of readings) {
       const unitId = this.hashidservice.decode(r.unitId);
       const houseId = this.hashidservice.decode(r.houseId);
-      // Not sent by the form — the reading is logged "now," so the backend stamps
+      // Not sent by the form: the reading is logged "now," so the backend stamps
       // it, same value used both for the row and for resolving its billing period.
       const readOn = new Date();
       const currentReading = Number(r.currentReading);

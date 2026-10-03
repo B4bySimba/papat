@@ -19,7 +19,7 @@ export default function UnitBar({ data, year, noData }: Props) {
   return (
     <div className="relative">
       <BarChartCard
-        title={`Monthly Overview — ${year}`}
+        title={`Monthly Overview (${year})`}
         description="Track expected vs collected vs balance"
         data={data}
         chartKeys={chartKeys}

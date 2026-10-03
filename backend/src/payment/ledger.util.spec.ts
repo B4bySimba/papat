@@ -12,7 +12,7 @@ import {
   ReadingPoint,
 } from './ledger.util';
 
-// Fixtures mirror the worked examples in docs/BILLING_MODEL.md — if one changes,
+// Fixtures mirror the worked examples in docs/BILLING_MODEL.md; if one changes,
 // change the other.
 
 const baseLease: LeaseFieldsForLedger = {
@@ -39,7 +39,7 @@ const openingReading: ReadingPoint = {
 };
 
 const febClosingReading: ReadingPoint = {
-  readOn: new Date(2025, 2, 3), // logged Mar 3 — must not matter
+  readOn: new Date(2025, 2, 3), // logged Mar 3; must not matter
   currentReading: 130,
   billingPeriod: new Date(2025, 1, 1), // closes February
   isMeterReset: false,
@@ -67,7 +67,7 @@ describe('billingDateFor', () => {
   });
 });
 
-describe('generateCharges — fixture A (doc §9)', () => {
+describe('generateCharges: fixture A (doc §9)', () => {
   const asOf = new Date(2025, 2, 20); // Mar 20 2025
   const charges = generateCharges(baseLease, [openingReading, febClosingReading], asOf);
 
@@ -114,7 +114,7 @@ describe('generateCharges — fixture A (doc §9)', () => {
   });
 });
 
-describe('ledger + monthly figures — fixture A (doc §9)', () => {
+describe('ledger + monthly figures: fixture A (doc §9)', () => {
   const asOf = new Date(2025, 2, 20);
   const charges = generateCharges(baseLease, [openingReading, febClosingReading], asOf);
   const payments = [
@@ -163,7 +163,7 @@ describe('ledger + monthly figures — fixture A (doc §9)', () => {
   });
 });
 
-describe('asOf gate — current month posts on the 1st (fixture D)', () => {
+describe('asOf gate: current month posts on the 1st (fixture D)', () => {
   it('posts the month on the 1st, before its due date', () => {
     const asOf = new Date(2025, 2, 3); // Mar 3, rent due Mar 5
     const charges = generateCharges(baseLease, [openingReading], asOf);

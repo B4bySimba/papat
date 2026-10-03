@@ -293,7 +293,7 @@ export class UnitService {
           error instanceof Prisma.PrismaClientKnownRequestError &&
           error.code === 'P2002' // Unique constraint failed
         ) {
-          // Someone inserted a unit just before this one — retry
+          // Someone inserted a unit just before this one; retry
           continue;
         }
 

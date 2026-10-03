@@ -877,7 +877,7 @@ export function InvoiceGenerator({ onClose }: { onClose: () => void }) {
                     <Button
                       onClick={() =>
                         toast.info(
-                          "Email delivery isn't available yet — use Print or Download."
+                          "Email delivery isn't available yet. Use Print or Download."
                         )
                       }
                     >

@@ -1,4 +1,4 @@
-# Papat Billing Model (V2 — event ledger, rentDue-based billing dates)
+# Papat Billing Model (V2: event ledger)
 
 This is the complete mental model of how money is computed in Papat: every charge,
 every ledger figure, every summary/report/chart/invoice number. V1 methods still
@@ -21,7 +21,7 @@ truth. Nothing is stored derived; there is no "posted invoice" table.
 | Source | Fields that matter |
 |---|---|
 | `Lease` | `startDate` (billing begins), `terminationDate` (billing ends; else "now"), `rentDue` (day-of-month the bill is due, e.g. `5`), `rentRate`, `deposit`, `arrearsbf`, `onEntryMeterReading`, `waterRate`, `serviceCharge`, `garbageFee`, `additional`+`additionalCharges`, `added_field_1..7`+`_price` |
-| `MeterReading` | `currentReading` (odometer), `billingPeriod` (**the** month this reading closes; `null` = opening/unassigned → never billed), `isMeterReset` (new physical meter → becomes baseline, no usage billed), `readOn` (log time only — **not used** by billing) |
+| `MeterReading` | `currentReading` (odometer), `billingPeriod` (**the** month this reading closes; `null` = opening/unassigned → never billed), `isMeterReset` (new physical meter → becomes baseline, no usage billed), `readOn` (log time only, **not used** by billing) |
 | `payment` | `amount`, `date` |
 | Clock | `asOf = lease.terminationDate ?? now` |
 
@@ -75,7 +75,7 @@ Examples (rentDue 5): on July 3 July's charges are already in the ledger, so a
 July 2 payment simply reduces what is owed. A lease terminated July 4 is never
 charged July rent (left before it came due); its measured water still bills.
 
-First month = `arrearsbf + deposit + rent` only — no extras, no water.
+First month = `arrearsbf + deposit + rent` only: no extras, no water.
 
 ## 4. The ledger (`buildLedger`)
 
@@ -84,12 +84,12 @@ Charges and payments merge into one timeline sorted by date
 settles that day's charge rather than preceding it). Each point carries:
 
 ```
-cumExpected  — all charges up to and including this event
-cumCollected — all payments up to and including this event
+cumExpected  : all charges up to and including this event
+cumCollected : all payments up to and including this event
 balance      = cumExpected − cumCollected   (positive = owed, negative = credit)
 ```
 
-The balance at any date is the tenant's true position **as of that date** —
+The balance at any date is the tenant's true position **as of that date**;
 this is what "does the tenant owe money" means.
 
 ## 5. Monthly summary rows (`getTenantLevelSummaryV2`)
@@ -102,10 +102,10 @@ at end of M−1:
 |---|---|
 | `expected` | `last.cumExpected − prevCumCollected` = **carry-forward balance + charges posted in M**. This is a *statement* ("pay this to be square"), not new-charges-only. |
 | `collected` | `last.cumCollected − prevCumCollected` |
-| `balance` | `last.balance` — cumulative position at month end. Always `expected − collected` of the same row. |
+| `balance` | `last.balance`: cumulative position at month end. Always `expected − collected` of the same row. |
 | `carryForward` | previous row's `balance` |
 | `currentCharges` | `expected − carryForward`: everything posted in M, water included |
-| `usage`, `waterCharge`, `serviceCharge`, `previousReading`, `currentReading` | Sum/ends of **all** water events dated in M — i.e. last month's usage (`waterCharge` includes the service charge) |
+| `usage`, `waterCharge`, `serviceCharge`, `previousReading`, `currentReading` | Sum/ends of **all** water events dated in M, i.e. last month's usage (`waterCharge` includes the service charge) |
 | `rentCharged` | rent actually posted in M (0 when the tenant left before the due date) |
 | `billingDate` | `YYYY-MM-DD` of M's due date |
 | `deposit`, `arrearsbf` | posted amounts, first month only (0 otherwise) |
@@ -126,12 +126,12 @@ tenant's page and the transactions list.
 - **House** (`getHouseLevelSummaryV2`): per month, sum `expected/collected/
   balance/usage/waterCharge/serviceCharge` over every lease that has a row that
   month (a tenant's rows stop at move-out). `includePastTenantsData=true` runs a
-  past tenant's rows on to today with no new charges, so what they still owe —
-  and anything they pay later — stays in the totals (the "Include past tenants"
+  past tenant's rows on to today with no new charges, so what they still owe
+  (and anything they pay later) stays in the totals (the "Include past tenants"
   switch on the dashboard and property pages).
 - **Manager** (`getManagerLevelSummaryV2`): same, over all houses.
 - **Monthly report** (`monthlyReportV2`): the tenant row of (year, month) per
-  unit — statement semantics (expected includes carry).
+  unit, with statement semantics (expected includes carry).
 - **Reports** list one row per unit: the current tenant by default, every
   tenant who occupied the unit with `includePastTenantsData=true` (Rate is then
   the latest tenant's rent).
@@ -140,12 +140,12 @@ tenant's page and the transactions list.
   - `totalExpected = expected(f) + Σ_{m>f} (expected(m) − balance(m−1))`
     = carry into the window + new charges inside it,
   - `totalCollected = Σ collected(m)`,
-  - `totalBalance = totalExpected − totalCollected` — telescopes to exactly
+  - `totalBalance = totalExpected − totalCollected`, which telescopes to exactly
     `balance(l)`, the true closing position.
   (The pre-fix code summed statement-`expected` directly, double-counting every
   month's carry-forward.)
 
-## 7. Charts / tables / invoice — who reads what
+## 7. Charts, tables, invoice: who reads what
 
 | UI | Endpoint | Fields |
 |---|---|---|
@@ -159,24 +159,24 @@ tenant's page and the transactions list.
 
 "Comprehensive" invoice for (year, month), from the summary rows alone:
 
-1. **Monthly Rent** — `rentCharged` (falls back to `rentRate` when the row
+1. **Monthly Rent**: `rentCharged` (falls back to `rentRate` when the row
    predates the field). Omitted only when genuinely not billed (terminated
    before due).
-2. **Security Deposit** / **Arrears B/F** — first-month rows only (`deposit`,
+2. **Security Deposit** / **Arrears B/F**: first-month rows only (`deposit`,
    `arrearsbf` fields).
-3. **Arrears Balance** — previous row's `balance` if positive. Previous row for
+3. **Arrears Balance**: previous row's `balance` if positive. Previous row for
    January is **December of the previous year** (the old code looked in the
-   same year — year-boundary bug — and also subtracted rent from it for no
+   same year, a year-boundary bug, and also subtracted rent from it for no
    reason).
-4. **Water Charge** — the row's `waterCharge` (already includes service
+4. **Water Charge**: the row's `waterCharge` (already includes service
    charge), with usage/rate/readings shown from the row's meter fields.
-5. **Extras** — every entry of `extraCharges`.
+5. **Extras**: every entry of `extraCharges`.
 
 **Invariant: invoice total = the row's `expected`** (to rounding). The
 generated invoice *is* the month's statement. `dueDate = billingDate`, and the
 printed invoice states that the expected amount is as of that due date.
 Invoice numbers are generated once per invoice (`invoiceNumber`) and displayed
-verbatim — never re-randomized at render.
+verbatim, never re-randomized at render.
 
 The "utilities → water" invoice lists readings/usage as info lines plus the
 water amounts from the same row fields.
@@ -204,7 +204,7 @@ Yearly totals: expected 17 000 + 10 800 + (14 800 − 800) = **41 800**
 
 Invoices: Jan = rent 10 000 + deposit 5 000 + arrearsbf 2 000 = 17 000 ✓;
 Feb = rent + garbage + security = 10 800 ✓;
-Mar = rent + arrears 800 + water + garbage + security = 14 800 ✓ — each equals
+Mar = rent + arrears 800 + water + garbage + security = 14 800 ✓. Each equals
 the row's `expected`.
 
 ## 10. Edge-case ledger
@@ -221,7 +221,7 @@ the row's `expected`.
 | two readings closing the same month | both bill; row water fields are the sums |
 | negative usage (typo, not flagged reset) | clamped to 0 |
 | same-day charge + payment | charge sorts first; payment settles it |
-| rentRate/serviceCharge changes | not versioned — current lease values apply to all history (known limitation, unchanged) |
+| rentRate/serviceCharge changes | not versioned: current lease values apply to all history (known limitation, unchanged) |
 
 ## 11. Timezone convention
 

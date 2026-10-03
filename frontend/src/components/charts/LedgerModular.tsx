@@ -43,7 +43,7 @@ export function LedgerModal({ name, data, open, onOpenChange }: LedgerModalProps
   const transformedData = useMemo(() => {
     if (!data || data.length === 0) return []
 
-    // carryForward/currentCharges come from the backend — deriving them here a second
+    // carryForward/currentCharges come from the backend; deriving them here a second
     // time is how the two views used to disagree.
     return data.map((entry): LedgerEntry => ({
       year: entry.year,
@@ -243,7 +243,7 @@ const handlePrint = async () => {
         }
       };
       printWindow.addEventListener("load", finalize, { once: true });
-      // safety timeout — adjust as needed; needed because some injected styles don't trigger load
+      // safety timeout (adjust as needed); needed because some injected styles don't trigger load
       setTimeout(finalize, 700);
     });
 
