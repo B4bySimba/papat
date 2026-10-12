@@ -43,6 +43,7 @@ model House {
   payment             payment[]
   maintenance         maintenance[]
   MeterReading       MeterReading[]
+  rates               RateChange[]
 
   @@index([landlordId])
 }
@@ -155,6 +156,10 @@ model Lease {
   unit                Unit          @relation(fields: [unitId], references: [id], onDelete: Cascade, onUpdate: NoAction)//think
   meterReading        MeterReading[]
   payment             payment[]
+  rates               RateChange[]
+  movedFromLeaseId    Int?           @unique
+  movedFrom           Lease?         @relation("LeaseMove", fields: [movedFromLeaseId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  movedTo             Lease?         @relation("LeaseMove")
 
   @@index([unitId])
   @@index([tenantId])
@@ -162,6 +167,42 @@ model Lease {
   @@index([status])
   @@index([startDate])
   @@index([houseId, status])
+}
+
+model RateChange {
+  id                  Int      @id @default(autoincrement())
+  leaseId             Int?
+  houseId             Int?
+  month               String
+  rentRate            Float?
+  rentDue             Int?
+  waterRate           Float?
+  serviceCharge       Float?
+  garbageFee          Float?
+  additional          String?
+  additionalCharges   Float?
+  added_field_1       String?
+  added_field_1_price Float?
+  added_field_2       String?
+  added_field_2_price Float?
+  added_field_3       String?
+  added_field_3_price Float?
+  added_field_4       String?
+  added_field_4_price Float?
+  added_field_5       String?
+  added_field_5_price Float?
+  added_field_6       String?
+  added_field_6_price Float?
+  added_field_7       String?
+  added_field_7_price Float?
+  note                String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  lease               Lease?   @relation(fields: [leaseId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  house               House?   @relation(fields: [houseId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([leaseId, month])
+  @@unique([houseId, month])
 }
 
 model MeterReading {

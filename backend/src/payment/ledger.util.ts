@@ -32,6 +32,10 @@ export interface LeaseFieldsForLedger {
   added_field_6_price?: number | null;
   added_field_7?: string | null;
   added_field_7_price?: number | null;
+  rates?: RateChange[];
+  movedOut?: boolean;
+  transferIn?: number;
+  transferNote?: string;
 }
 
 export interface ReadingPoint {
@@ -86,6 +90,67 @@ export function billingDateFor(
   return new Date(year, month, Math.min(day, lastDay));
 }
 
+/** The monthly terms a change can set. Deposit, arrears b/f and the start date are one-offs. */
+export const RATE_FIELDS = [
+  'rentRate', 'rentDue', 'waterRate', 'serviceCharge', 'garbageFee', 'additional', 'additionalCharges',
+  'added_field_1', 'added_field_1_price', 'added_field_2', 'added_field_2_price',
+  'added_field_3', 'added_field_3_price', 'added_field_4', 'added_field_4_price',
+  'added_field_5', 'added_field_5_price', 'added_field_6', 'added_field_6_price',
+  'added_field_7', 'added_field_7_price',
+] as const;
+export type RateField = (typeof RATE_FIELDS)[number];
+
+/** From `month` ("YYYY-MM") on, each non-null field replaces the lease's value until a later change. */
+export type RateChange = { month: string } & { [F in RateField]?: LeaseFieldsForLedger[F] | null };
+
+/** The terms in force in `d`'s month: the move-in terms with every change up to that month applied. */
+export function termsAt<T extends { rates?: RateChange[] }>(lease: T, d: Date): T {
+  const ym = formatMonth(d);
+  let terms = lease;
+  for (const r of lease.rates ?? []) {
+    if (r.month > ym) break;
+    terms = { ...terms };
+    for (const f of RATE_FIELDS) if (r[f] != null) (terms as any)[f] = r[f];
+  }
+  return terms;
+}
+
+/** Just the term fields of a lease, change or property, nulls included. */
+export function rateFields(source: object): Record<RateField, any> {
+  return Object.fromEntries(RATE_FIELDS.map((f) => [f, (source as any)[f] ?? null])) as Record<RateField, any>;
+}
+
+/**
+ * The change to store for `month` so that `fields` apply from then on: only what differs from
+ * the terms in force just before it, merged into any change already saved for that month.
+ * Null when nothing is left to store.
+ */
+export function changeFor(base: { rates?: RateChange[] }, month: string, fields: Partial<Record<RateField, any>>) {
+  const rates = base.rates ?? [];
+  const before = termsAt({ ...base, rates: rates.filter((r) => r.month !== month) }, parseMonth(month));
+  const same = (a: any, b: any) => a === b || (!a && !b);
+  const row = rateFields(rates.find((r) => r.month === month) ?? {});
+  for (const f of RATE_FIELDS) {
+    if (f in fields) row[f] = same(fields[f], (before as any)[f]) ? null : fields[f];
+  }
+  return RATE_FIELDS.some((f) => row[f] != null) ? row : null;
+}
+
+/** A property's default charges under the lease field names, with its scheduled changes. */
+export function houseBase(house: Record<string, any>) {
+  const base: Record<string, any> & { rates: RateChange[] } = {
+    waterRate: house.water_bill ?? 0,
+    serviceCharge: house.serviceCharge ?? 0,
+    garbageFee: house.garbage_collection ?? 0,
+    rates: house.rates ?? [],
+  };
+  for (let i = 1; i <= 7; i++) {
+    base[`added_field_${i}`] = house[`added_field_${i}`] ?? null;
+    base[`added_field_${i}_price`] = house[`added_field_${i}_price`] ?? 0;
+  }
+  return base;
+}
+
 /**
  * Pure function, no DB access. Full semantics: docs/BILLING_MODEL.md.
  *
@@ -103,6 +168,10 @@ export function billingDateFor(
  * is not charged that month. Water measured for month M can only be read once M
  * is over, so it posts with M+1's charges on the 1st, or on the move-out date
  * when the tenant leaves before that.
+ *
+ * Each month uses the terms in force that month (`termsAt`); water uses the terms
+ * of the month it is billed. A tenant who moved units is billed the move month on
+ * the new unit only, and the new unit bills extras from its first month.
  */
 export function generateCharges(
   lease: LeaseFieldsForLedger,
@@ -117,26 +186,32 @@ export function generateCharges(
   if (lease.deposit) {
     events.push({ date: lease.startDate, label: 'deposit', amount: lease.deposit });
   }
+  if (lease.transferIn) {
+    events.push({ date: lease.startDate, label: 'transfer', amount: lease.transferIn });
+  }
 
   let m = startOfMonth(lease.startDate);
   let isFirst = true;
   while (m <= asOf) {
-    const due = billingDateFor(m.getFullYear(), m.getMonth(), lease.rentDue);
+    const t = termsAt(lease, m);
+    const due = billingDateFor(m.getFullYear(), m.getMonth(), t.rentDue);
     const dueOn = isFirst && lease.startDate > due ? lease.startDate : due;
     const billOn = isFirst ? lease.startDate : m;
-    const leftBeforeDue = !!lease.terminationDate && lease.terminationDate < dueOn;
+    const leftBeforeDue =
+      !!lease.terminationDate &&
+      (lease.terminationDate < dueOn || (!!lease.movedOut && monthIndex(lease.terminationDate) === monthIndex(m)));
     if (billOn <= asOf && !leftBeforeDue) {
-      events.push({ date: billOn, label: 'rent', amount: lease.rentRate });
-      if (!isFirst) {
-        if (lease.garbageFee) {
-          events.push({ date: billOn, label: 'garbageFee', amount: lease.garbageFee });
+      events.push({ date: billOn, label: 'rent', amount: t.rentRate });
+      if (!isFirst || lease.transferIn !== undefined) {
+        if (t.garbageFee) {
+          events.push({ date: billOn, label: 'garbageFee', amount: t.garbageFee });
         }
-        if (lease.additional && lease.additionalCharges) {
-          events.push({ date: billOn, label: lease.additional, amount: lease.additionalCharges });
+        if (t.additional && t.additionalCharges) {
+          events.push({ date: billOn, label: t.additional, amount: t.additionalCharges });
         }
         for (let i = 1; i <= 7; i++) {
-          const price = (lease as any)[`added_field_${i}_price`];
-          const label = (lease as any)[`added_field_${i}`];
+          const price = (t as any)[`added_field_${i}_price`];
+          const label = (t as any)[`added_field_${i}`];
           if (price && label) events.push({ date: billOn, label, amount: price });
         }
       }
@@ -168,15 +243,16 @@ export function generateCharges(
     const nextMonth = new Date(bp.getFullYear(), bp.getMonth() + 1, 1);
     const billOn = lease.terminationDate && lease.terminationDate < nextMonth ? lease.terminationDate : nextMonth;
     if (duringTenancy && billOn <= asOf) {
+      const t = termsAt(lease, billOn);
       const usage = Math.max(0, r.currentReading - prevReading);
-      const serviceChargeAmt = usage > 0 ? (lease.serviceCharge ?? 0) : 0;
+      const serviceChargeAmt = usage > 0 ? (t.serviceCharge ?? 0) : 0;
       events.push({
         date: billOn,
         label: 'water',
-        amount: usage * lease.waterRate + serviceChargeAmt,
+        amount: usage * t.waterRate + serviceChargeAmt,
         meta: {
           usage,
-          waterCharge: usage * lease.waterRate,
+          waterCharge: usage * t.waterRate,
           serviceCharge: serviceChargeAmt,
           previousReading: prevReading,
           currentReading: r.currentReading,
@@ -264,10 +340,21 @@ export interface MonthRow {
   previousReading: number | null;
   currentReading: number | null;
   extraCharges: Record<string, number>;
+  transfer: number;
+  transferNote: string | null;
   payments: { date: Date; amount: number; method: string | null; reference: string | null }[];
 }
 
 const monthIndex = (d: Date) => d.getFullYear() * 12 + d.getMonth();
+
+/** What a tenant who moved units owed on the move day: all charges, less everything paid by the end of that day. */
+export function moveOutBalance(charges: ChargeEvent[], payments: { date: Date; amount: number }[], movedOn: Date) {
+  const end = endOfLocalDay(movedOn);
+  let owed = 0;
+  for (const c of charges) owed += c.amount;
+  for (const p of payments) if (p.date <= end) owed -= p.amount;
+  return owed;
+}
 
 /**
  * Pure. The whole per-lease statement: charges, ledger and one row per month.
@@ -283,6 +370,11 @@ export function computeLeaseLedger(
   rowsUntil: Date = asOf,
 ): MonthRow[] {
   const charges = generateCharges(lease, readings, asOf);
+  if (lease.movedOut && lease.terminationDate) {
+    // End of the move day, so a payment made later that day is included and the lease closes at 0.
+    const movedOn = lease.terminationDate;
+    charges.push({ date: endOfLocalDay(movedOn), label: 'transfer', amount: -moveOutBalance(charges, payments, movedOn) });
+  }
   const ledger = buildLedger(charges, payments);
   const firstMonth = monthIndex(lease.startDate);
 
@@ -320,7 +412,7 @@ export function computeLeaseLedger(
     const closing = closingBy.get(k) ?? carry;
 
     let usage = 0, waterCharge = 0, serviceCharge = 0;
-    let rentCharged = 0, deposit = 0, arrearsbf = 0, waterEvents = 0;
+    let rentCharged = 0, deposit = 0, arrearsbf = 0, transfer = 0, waterEvents = 0;
     let previousReading: number | null = null;
     let currentReading: number | null = null;
     const extraCharges: Record<string, number> = {};
@@ -336,10 +428,13 @@ export function computeLeaseLedger(
       } else if (c.label === 'rent') rentCharged += c.amount;
       else if (c.label === 'deposit') deposit += c.amount;
       else if (c.label === 'arrearsbf') arrearsbf += c.amount;
-      else extraCharges[c.label] = c.amount;
+      else if (c.label === 'transfer') transfer += c.amount;
+      else extraCharges[c.label] = (extraCharges[c.label] ?? 0) + c.amount;
     }
 
-    let billingDate = billingDateFor(m.getFullYear(), m.getMonth(), lease.rentDue);
+    // After move-out, show the final terms rather than a change the tenant never reached.
+    const t = termsAt(lease, m < asOf ? m : asOf);
+    let billingDate = billingDateFor(m.getFullYear(), m.getMonth(), t.rentDue);
     if (k === firstMonth && lease.startDate > billingDate) billingDate = new Date(lease.startDate);
 
     const expected = Math.round(closing.cumExpected - prevCumCollected);
@@ -357,15 +452,17 @@ export function computeLeaseLedger(
       usage,
       waterCharge,
       serviceCharge,
-      rentRate: lease.rentRate,
+      rentRate: t.rentRate,
       rentCharged: Math.round(rentCharged),
       billingDate: `${billingDate.getFullYear()}-${String(billingDate.getMonth() + 1).padStart(2, '0')}-${String(billingDate.getDate()).padStart(2, '0')}`,
       deposit: Math.round(deposit),
       arrearsbf: Math.round(arrearsbf),
-      waterRate: lease.waterRate,
+      waterRate: t.waterRate,
       previousReading,
       currentReading,
       extraCharges,
+      transfer: Math.round(transfer),
+      transferNote: transfer ? (lease.transferNote ?? null) : null,
       payments: (paymentsBy.get(k) ?? []).map((p) => ({
         date: p.date,
         amount: p.amount,
@@ -381,6 +478,19 @@ export function computeLeaseLedger(
   }
 
   return rows;
+}
+
+/** What a preview shows: the months whose charges changed, and the balance today before and after. */
+export function ledgerImpact(before: MonthRow[], after: MonthRow[]) {
+  const key = (r: MonthRow) => `${r.month} ${r.year}`;
+  const was = new Map(before.map((r) => [key(r), r.currentCharges]));
+  return {
+    months: after
+      .filter((r) => was.get(key(r)) !== r.currentCharges)
+      .map((r) => ({ month: key(r), before: was.get(key(r)) ?? 0, after: r.currentCharges })),
+    balanceBefore: before.at(-1)?.balance ?? 0,
+    balanceAfter: after.at(-1)?.balance ?? 0,
+  };
 }
 
 export { startOfMonth, addMonths, endOfMonth };

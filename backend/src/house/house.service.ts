@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { Prisma } from 'generated/prisma/client';
 import { HashidService } from 'src/common/hashid/hashid.service';
+import { termsAt } from 'src/payment/ledger.util';
 import prisma from 'lib/db';
 
 
@@ -313,6 +314,7 @@ export class HouseService {
               select: {
                 code: true,
                 rentRate: true,
+                rates: { orderBy: { month: 'asc' } },
                 tenant: {
                   select: {
                     name: true,
@@ -339,7 +341,7 @@ export class HouseService {
           name: unit.number,
           leaseCode: lease?.code || null,
           tenant: lease?.tenant?.name || null,
-          rent: lease?.rentRate || null,
+          rent: (lease && termsAt(lease, new Date()).rentRate) || null,
           contact: lease?.tenant?.contact || null,
         };
       }),
@@ -360,6 +362,7 @@ export class HouseService {
               select: {
                 code: true,
                 rentRate: true,
+                rates: { orderBy: { month: 'asc' } },
                 tenant: {
                   select: {
                     name: true,
@@ -386,7 +389,7 @@ export class HouseService {
           name: unit.number,
           leaseCode: lease?.code || null,
           tenant: lease?.tenant?.name || null,
-          rent: lease?.rentRate || null,
+          rent: (lease && termsAt(lease, new Date()).rentRate) || null,
           contact: lease?.tenant?.contact || null,
         };
       }),

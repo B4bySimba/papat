@@ -19,7 +19,10 @@ interface LedgerEntry {
   year: number
   month: string
   carryForward: number
+  rentCharged: number
   currentCharges: number
+  transfer: number
+  transferNote: string | null
   expected: number
   collected: number
   balance: number
@@ -37,7 +40,7 @@ interface LedgerModalProps {
 }
 
 export function LedgerModal({ name, data, open, onOpenChange }: LedgerModalProps) {
-  const [viewMode, setViewMode] = useState<"card" | "table">("card")
+  const [viewMode, setViewMode] = useState<"card" | "table">("table")
   const printRef = useRef<HTMLDivElement>(null)
 
   const transformedData = useMemo(() => {
@@ -49,7 +52,10 @@ export function LedgerModal({ name, data, open, onOpenChange }: LedgerModalProps
       year: entry.year,
       month: entry.month,
       carryForward: entry.carryForward || 0,
-      currentCharges: entry.currentCharges || 0,
+      rentCharged: entry.rentCharged || 0,
+      currentCharges: (entry.currentCharges || 0) - (entry.transfer || 0),
+      transfer: entry.transfer || 0,
+      transferNote: entry.transferNote ?? null,
       expected: entry.expected,
       collected: entry.collected || 0,
       balance: entry.balance || 0,
@@ -59,6 +65,7 @@ export function LedgerModal({ name, data, open, onOpenChange }: LedgerModalProps
       payments: entry.payments || [],
     }))
   }, [data])
+  const hasTransfer = transformedData.some((entry) => entry.transfer)
 
 const handlePrint = async () => {
   if (!printRef.current) return;
@@ -318,9 +325,21 @@ const handlePrint = async () => {
                             <p className="font-semibold text-lg">Ksh.{entry.carryForward.toLocaleString()}</p>
                           </div>
                           <div>
+                            <p className="text-sm text-muted-foreground">Rent</p>
+                            <p className="font-semibold text-lg">
+                              {entry.rentCharged ? `Ksh.${entry.rentCharged.toLocaleString()}` : "-"}
+                            </p>
+                          </div>
+                          <div>
                             <p className="text-sm text-muted-foreground">Current Charges</p>
                             <p className="font-semibold text-lg">Ksh.{entry.currentCharges.toLocaleString()}</p>
                           </div>
+                          {entry.transfer !== 0 && (
+                            <div>
+                              <p className="text-sm text-muted-foreground">{entry.transferNote ?? "Transfer"}</p>
+                              <p className="font-semibold text-lg">Ksh.{entry.transfer.toLocaleString()}</p>
+                            </div>
+                          )}
                         </div>
                         <u>water billage</u>
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-4">
@@ -398,13 +417,15 @@ const handlePrint = async () => {
                       <TableRow>
                         <TableHead className="w-[80px] print:w-[12%]">Month/Year</TableHead>
                         <TableHead className="w-[80px] print:w-[10%]">Carry Fwd</TableHead>
+                        <TableHead className="w-[80px] print:w-[8%]">Rent</TableHead>
                         <TableHead className="w-[80px] print:w-[10%]">Charges</TableHead>
                         <TableHead className="w-[60px] print:w-[8%]">Usage</TableHead>
                         <TableHead className="w-[80px] print:w-[10%]">Water Chg</TableHead>
+                        {hasTransfer && <TableHead className="w-[80px]">Transfer</TableHead>}
                         <TableHead className="w-[80px] print:w-[10%]">Expected</TableHead>
                         <TableHead className="w-[80px] print:w-[10%]">Collected</TableHead>
                         <TableHead className="w-[80px] print:w-[10%]">Balance</TableHead>
-                        <TableHead className="print:w-[20%]">Payments</TableHead>
+                        <TableHead className="print:w-[12%]">Payments</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -414,11 +435,17 @@ const handlePrint = async () => {
                             {entry.month} {entry.year}
                           </TableCell>
                           <TableCell>Ksh.{entry.carryForward.toLocaleString()}</TableCell>
+                          <TableCell>{entry.rentCharged ? `Ksh.${entry.rentCharged.toLocaleString()}` : "-"}</TableCell>
                           <TableCell>Ksh.{entry.currentCharges.toLocaleString()}</TableCell>
                           <TableCell>
                             {entry.usage || "-"} {entry.usage ? "units" : ""}
                           </TableCell>
                           <TableCell>{entry.waterCharge ? `Ksh.${entry.waterCharge.toLocaleString()}` : "-"}</TableCell>
+                          {hasTransfer && (
+                            <TableCell title={entry.transferNote ?? undefined}>
+                              {entry.transfer ? `Ksh.${entry.transfer.toLocaleString()}` : "-"}
+                            </TableCell>
+                          )}
                           <TableCell>Ksh.{entry.expected.toLocaleString()}</TableCell>
                           <TableCell className="text-green-600">Ksh.{entry.collected.toLocaleString()}</TableCell>
                           <TableCell className={`font-semibold ${balanceTone(entry.balance)}`}>

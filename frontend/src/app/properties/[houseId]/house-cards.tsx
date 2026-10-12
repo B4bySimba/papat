@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Building2, DoorOpen, DoorClosed, Home, Edit } from "lucide-react";
+import { Building2, DoorOpen, DoorClosed, Home, Edit, Receipt } from "lucide-react";
 import StatCard from "@/components/StatCard";
+import PropertyRatesSheet from "@/components/forms/property-rates-sheet";
 import {
   Sheet,
   SheetContent,
@@ -47,6 +48,7 @@ export default function HouseCards({
   setSheetOpen,
 }: Props) {
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  const [ratesOpen, setRatesOpen] = useState(false);
 
   // const [sheetOpen, setSheetOpen] = useState(false);
   // const [editMode, setEditMode] = useState(false);
@@ -171,7 +173,19 @@ export default function HouseCards({
           </SheetHeader>
 
           {!editMode && (
-            <div className="flex justify-end mb-4">
+            <div className="flex justify-end gap-2 mb-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSheetOpen(false);
+                  setRatesOpen(true);
+                }}
+                className="cursor-pointer"
+              >
+                <Receipt />
+                Change charges for all units
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -361,6 +375,8 @@ export default function HouseCards({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <PropertyRatesSheet houseId={houseId} open={ratesOpen} onOpenChange={setRatesOpen} />
     </div>
   );
 }

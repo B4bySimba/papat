@@ -45,6 +45,8 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Textarea } from "@/components/ui/textarea";
 import { LedgerModal } from "@/components/charts/LedgerModular";
+import RateChangeSheet from "@/components/forms/rate-change-sheet";
+import { monthLabel } from "@/lib/rates";
 
 interface Props {
   houseId: string;
@@ -70,11 +72,7 @@ export default function UnitCards({
   ledgerData,
 }: Props) {
   const [moveSheetOpen, setMoveSheetOpen] = useState(false);
-  const availableUnits = [
-    { id: "101", label: "Unit A - 1st Floor" },
-    { id: "102", label: "Unit B - 2nd Floor" },
-    { id: "103", label: "Unit C - 3rd Floor" },
-  ];
+  const [ratesSheetOpen, setRatesSheetOpen] = useState(false);
 
   const router = useRouter();
   const [editMode, setEditMode] = useState(false);
@@ -383,6 +381,11 @@ export default function UnitCards({
                 <span className="flex items-center gap-2">
                   Rent <span className="text-muted-foreground">:</span> KES{" "}
                   {tenant.rentRate.toLocaleString()}
+                  {tenant.nextRent && (
+                    <span className="text-xs font-normal text-muted-foreground">
+                      ({tenant.nextRent.rentRate.toLocaleString()} from {monthLabel(tenant.nextRent.month)})
+                    </span>
+                  )}
                 </span>
               }
               icon={Receipt}
@@ -404,6 +407,19 @@ export default function UnitCards({
               Detailed breakdown of current charges for this tenant.
             </SheetDescription>
           </SheetHeader>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="self-start mb-4 cursor-pointer"
+            onClick={() => {
+              setBillsSheetOpen(false);
+              setRatesSheetOpen(true);
+            }}
+          >
+            <Edit className="w-4 h-4 mr-2" />
+            Change rent or charges
+          </Button>
 
           {/* <div className="text-lg font-semibold text-foreground mb-6">
             Total:{" "}
@@ -691,6 +707,8 @@ export default function UnitCards({
                     This will permanently delete all data for{" "}
                     <strong>{tenant?.tenant?.name}</strong>. This action cannot
                     be undone.
+                    {tenant.movedFromUnit &&
+                      ` It also undoes the move from unit ${tenant.movedFromUnit}: that unit would bill the move month again.`}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
 
@@ -874,12 +892,17 @@ export default function UnitCards({
       <MoveTenantSheet
         open={moveSheetOpen}
         onOpenChange={setMoveSheetOpen}
-        currentUnitId={unitId}
-        availableUnits={availableUnits}
-        onConfirm={(newUnitId) => {
-          console.log(`Move tenant from ${unitId} to ${newUnitId}`);
-          // await moveTenant(unitId, newUnitId);
-        }}
+        houseId={houseId}
+        tenantId={tenant.tenant.id}
+        currentDeposit={tenant.deposit ?? 0}
+        onMoved={(newUnitId) => router.push(`/properties/${houseId}/units/${newUnitId}`)}
+      />
+
+      <RateChangeSheet
+        leaseId={tenant.leaseId}
+        open={ratesSheetOpen}
+        onOpenChange={setRatesSheetOpen}
+        onSaved={refreshTenant}
       />
 
       <LedgerModal

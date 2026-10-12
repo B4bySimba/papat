@@ -7,12 +7,15 @@ import {
 } from '@nestjs/common';
 import { Prisma } from 'generated/prisma/client';
 import { HashidService } from 'src/common/hashid/hashid.service';
+import { LedgerService, previewable } from 'src/payment/ledger.service';
+import { endOfLocalDay, formatMonth, houseBase, rateFields, startOfMonth, termsAt } from 'src/payment/ledger.util';
 import prisma from 'lib/db';
 
 @Injectable()
 export class TenantService {
   constructor(
     private readonly hashIdService: HashidService,
+    private readonly ledger: LedgerService,
   ) {}
 
   //frontend
@@ -67,7 +70,7 @@ export class TenantService {
     };
   }
 
-  async createTenant(input: any) {
+  async createTenant(input: any, outerTx?: Prisma.TransactionClient) {
     const unitId = input.unitId;
 
     if (!unitId) {
@@ -116,11 +119,11 @@ export class TenantService {
     };
 
     try {
-      const tenant = await prisma.$transaction(async (tx) => {
+      const create = async (tx: Prisma.TransactionClient) => {
         const unit = await tx.unit.update({
           where: { id: unitId },
           data: { tenantSequence: { increment: 1 } },
-          include: { house: true },
+          include: { house: { include: { rates: { orderBy: { month: 'asc' } } } } },
         });
 
         // The update above locks the unit row, so a repeated submit waits here and is then refused.
@@ -164,18 +167,20 @@ export class TenantService {
           where: { id: unitId },
           data: {
             state: true,
-            deposit: input.deposit,
+            deposit: input.movedFromLeaseId ? undefined : input.deposit,
             rentRate: input.rentRate,
           },
         });
 
-        // Step 3: Create Lease
+        // Step 3: Create Lease, on the property's charges in force when it starts
+        const terms = termsAt(houseBase(unit.house), new Date(input.effectiveFrom));
         const lease = await tx.lease.create({
           data: {
             code: leaseCode,
             tenant: { connect: { id: createdTenant.id } },
             unit: { connect: { id: unitId } },
             house: { connect: { id: unit.houseId } },
+            ...(input.movedFromLeaseId && { movedFrom: { connect: { id: input.movedFromLeaseId } } }),
 
             moveInDate: parseRequiredDate(
               input.moveInDate || input.effectiveFrom,
@@ -190,31 +195,39 @@ export class TenantService {
             additionalCharges: unit.additionalCharges ?? 0,
             onEntryMeterReading: input.currentMeterReading ?? 0,
 
-            waterRate: unit.house.water_bill ?? 0,
-            serviceCharge: unit.house.serviceCharge ?? 0,
+            waterRate: terms.waterRate,
+            serviceCharge: terms.serviceCharge,
             electricityRate: unit.house.electricity_bill ?? 0,
-            garbageFee: unit.house.garbage_collection ?? 0,
+            garbageFee: terms.garbageFee,
 
-            added_field_1: unit.house.added_field_1 ?? null,
-            added_field_2: unit.house.added_field_2 ?? null,
-            added_field_3: unit.house.added_field_3 ?? null,
-            added_field_4: unit.house.added_field_4 ?? null,
-            added_field_5: unit.house.added_field_5 ?? null,
-            added_field_6: unit.house.added_field_6 ?? null,
-            added_field_7: unit.house.added_field_7 ?? null,
+            added_field_1: terms.added_field_1,
+            added_field_2: terms.added_field_2,
+            added_field_3: terms.added_field_3,
+            added_field_4: terms.added_field_4,
+            added_field_5: terms.added_field_5,
+            added_field_6: terms.added_field_6,
+            added_field_7: terms.added_field_7,
 
-            added_field_1_price: unit.house.added_field_1_price ?? 0,
-            added_field_2_price: unit.house.added_field_2_price ?? 0,
-            added_field_3_price: unit.house.added_field_3_price ?? 0,
-            added_field_4_price: unit.house.added_field_4_price ?? 0,
-            added_field_5_price: unit.house.added_field_5_price ?? 0,
-            added_field_6_price: unit.house.added_field_6_price ?? 0,
-            added_field_7_price: unit.house.added_field_7_price ?? 0,
+            added_field_1_price: terms.added_field_1_price,
+            added_field_2_price: terms.added_field_2_price,
+            added_field_3_price: terms.added_field_3_price,
+            added_field_4_price: terms.added_field_4_price,
+            added_field_5_price: terms.added_field_5_price,
+            added_field_6_price: terms.added_field_6_price,
+            added_field_7_price: terms.added_field_7_price,
           },
         });
 
+        // Changes the property has scheduled for later months apply to the new tenant too.
+        const later = unit.house.rates.filter((r) => r.month > formatMonth(lease.startDate));
+        if (later.length) {
+          await tx.rateChange.createMany({
+            data: later.map((r) => ({ ...rateFields(r), month: r.month, note: r.note, leaseId: lease.id })),
+          });
+        }
+
         // Step 4: Create Initial Meter Reading (only if house has a water bill)
-        if (unit.house.water_bill && unit.house.water_bill > 0) {
+        if (terms.waterRate > 0) {
           if (
             input.currentMeterReading === undefined ||
             input.currentMeterReading === null
@@ -238,7 +251,8 @@ export class TenantService {
         }
 
         return createdTenant;
-      });
+      };
+      await (outerTx ? create(outerTx) : prisma.$transaction(create));
 
       return {
         message: 'Tenant created successfully.',
@@ -407,7 +421,7 @@ export class TenantService {
       throw new NotFoundException('Unit does not exist');
     }
 
-    const lease = await prisma.lease.findFirst({
+    const found = await prisma.lease.findFirst({
       where: {
         unitId,
         status: 'ACTIVE',
@@ -450,12 +464,17 @@ export class TenantService {
         code: true,
         houseId: true,
         arrearsbf: true,
+        movedFromLeaseId: true,
+        movedFrom: { select: { unit: { select: { number: true } } } },
+        rates: { orderBy: { month: 'asc' } },
       },
     });
 
-    if (!lease || !lease.tenant) {
+    if (!found || !found.tenant) {
       throw new NotFoundException('Unit is Vacant');
     }
+    const lease = termsAt(found, new Date());
+    const nextRent = found.rates.find((r) => r.month > formatMonth(new Date()) && r.rentRate != null);
 
     return {
       tenant: {
@@ -482,13 +501,26 @@ export class TenantService {
       added_field_7_price: lease.added_field_7_price ?? 0,
       additional: lease.additional,
       additionalCharges: lease.additionalCharges ?? 0,
-      deposit: lease.deposit ?? 0,
+      deposit: await this.depositHeld(found),
       rentRate: lease.rentRate,
       leaseId: this.hashIdService.encode(lease.id),
       leaseCode: lease.code,
       houseId: this.hashIdService.encode(lease.houseId),
       arrearsbf: lease.arrearsbf,
+      nextRent: nextRent ? { month: nextRent.month, rentRate: nextRent.rentRate } : null,
+      movedFromUnit: found.movedFrom?.unit.number ?? null,
     };
+  }
+
+  /** The deposit a tenant holds: this lease's, plus what came with them from units they moved from. */
+  private async depositHeld(lease: { deposit: number | null; movedFromLeaseId: number | null }) {
+    let held = lease.deposit ?? 0;
+    for (let id = lease.movedFromLeaseId; id !== null; ) {
+      const from = await prisma.lease.findUnique({ where: { id }, select: { deposit: true, movedFromLeaseId: true } });
+      held += from?.deposit ?? 0;
+      id = from?.movedFromLeaseId ?? null;
+    }
+    return held;
   }
 
   async year(code: string): Promise<number> {
@@ -508,7 +540,7 @@ export class TenantService {
   async arrearsbf(id: number, updateLeaseDto: Prisma.LeaseUpdateInput) {
     return prisma.lease.update({
       where: { id },
-      data: updateLeaseDto,
+      data: { arrearsbf: updateLeaseDto.arrearsbf },
     });
   }
 
@@ -551,7 +583,7 @@ export class TenantService {
   }
 
   async getPastTenant(id: number) {
-    const lease = await prisma.lease.findFirst({
+    const found = await prisma.lease.findFirst({
       where: {
         id,
         status: 'TERMINATED',
@@ -594,12 +626,16 @@ export class TenantService {
         code: true,
         houseId: true,
         arrearsbf: true,
+        terminationDate: true,
+        movedFromLeaseId: true,
+        rates: { orderBy: { month: 'asc' } },
       },
     });
 
-    if (!lease || !lease.tenant) {
+    if (!found || !found.tenant) {
       throw new NotFoundException('Tenant not Found');
     }
+    const lease = termsAt(found, found.terminationDate ?? new Date());
 
     return {
       tenant: {
@@ -626,7 +662,7 @@ export class TenantService {
       added_field_7_price: lease.added_field_7_price ?? 0,
       additional: lease.additional,
       additionalCharges: lease.additionalCharges ?? 0,
-      deposit: lease.deposit ?? 0,
+      deposit: await this.depositHeld(found),
       rentRate: lease.rentRate,
       leaseId: this.hashIdService.encode(lease.id),
       leaseCode: lease.code,
@@ -816,6 +852,104 @@ export class TenantService {
     return {
       message: `Tenant ${name} vacated and Unit ${unitNumber} set to VACANT.`,
     };
+  }
+
+  /** Moves a tenant to a vacant unit in the same property, carrying their balance across. A preview saves nothing. */
+  async moveTenant(
+    tenantId: number,
+    body: {
+      toUnitId: number;
+      date: string;
+      rentRate: number;
+      deposit: number;
+      finalReading?: number | null;
+      openingReading?: number | null;
+      preview?: boolean;
+    },
+  ) {
+    const movedOn = new Date(body.date);
+    if (isNaN(movedOn.getTime()) || movedOn > endOfLocalDay(new Date())) {
+      throw new BadRequestException('Pick a move date up to today.');
+    }
+    if (typeof body.rentRate !== 'number' || body.rentRate < 0 || typeof body.deposit !== 'number' || !Number.isFinite(body.deposit)) {
+      throw new BadRequestException('Check the rent and the deposit.');
+    }
+
+    return previewable(!!body.preview, async (tx) => {
+      const old = await tx.lease.findFirst({
+        where: { tenantId, status: 'ACTIVE' },
+        include: { tenant: true, rates: { orderBy: { month: 'asc' } } },
+      });
+      if (!old) throw new NotFoundException('This tenant has no active lease.');
+      const unit = await tx.unit.findUnique({ where: { id: body.toUnitId } });
+      if (!unit || unit.houseId !== old.houseId || unit.id === old.unitId) {
+        throw new BadRequestException('Pick another unit in the same property.');
+      }
+      if (movedOn < old.startDate) throw new BadRequestException('The move date is before this tenancy started.');
+      if (await tx.lease.count({ where: { unitId: unit.id, terminationDate: { gt: movedOn } } })) {
+        throw new BadRequestException(`Unit ${unit.number} was still occupied on that date.`);
+      }
+
+      const terms = termsAt(old, movedOn);
+      const month = startOfMonth(movedOn);
+      const closed = await tx.meterReading.findFirst({ where: { leaseId: old.id, billingPeriod: month } });
+      if (terms.waterRate > 0 && !closed && body.finalReading == null) {
+        throw new BadRequestException('Enter the final meter reading for the old unit.');
+      }
+
+      // Close the old tenancy the way vacating does, with its last water reading.
+      await tx.lease.update({ where: { id: old.id }, data: { status: 'TERMINATED', terminationDate: movedOn } });
+      await tx.tenant.update({ where: { id: tenantId }, data: { state: 'FORMER' } });
+      await tx.unit.update({ where: { id: old.unitId }, data: { state: false } });
+      if (!closed && body.finalReading != null) {
+        await tx.meterReading.create({
+          data: {
+            currentReading: Number(body.finalReading),
+            readOn: movedOn,
+            billingPeriod: month,
+            unitId: old.unitId,
+            houseId: old.houseId,
+            leaseId: old.id,
+            tenantId,
+          },
+        });
+      }
+
+      const { tenant } = old;
+      await this.createTenant(
+        {
+          name: tenant.name,
+          photo: tenant.photo,
+          nationId: tenant.nationId,
+          contact: tenant.contact,
+          emergencyContactName: tenant.emergencyContactName,
+          emergencyContactPhone: tenant.emergencyContactPhone,
+          notes: tenant.notes,
+          unitId: unit.id,
+          effectiveFrom: body.date,
+          rentRate: body.rentRate,
+          deposit: body.deposit,
+          rentDue: terms.rentDue,
+          currentMeterReading: body.openingReading,
+          movedFromLeaseId: old.id,
+        },
+        tx,
+      );
+      const lease = await tx.lease.findFirstOrThrow({ where: { unitId: unit.id, status: 'ACTIVE' } });
+
+      // Anything already entered for after the move belongs to the new unit.
+      const moved = await tx.payment.updateMany({
+        where: { leaseId: old.id, date: { gt: endOfLocalDay(movedOn) } },
+        data: { leaseId: lease.id, tenantId: lease.tenantId, unitId: unit.id },
+      });
+      await tx.meterReading.updateMany({
+        where: { unitId: unit.id, leaseId: null, readOn: { gte: movedOn } },
+        data: { leaseId: lease.id, tenantId: lease.tenantId },
+      });
+
+      const rows = (await this.ledger.ledgersFor([lease.id], false, tx)).get(lease.id) ?? [];
+      return { unit: unit.number, balanceMoved: rows[0]?.transfer ?? 0, paymentsMoved: moved.count };
+    });
   }
 
   async remove(tenantId: number): Promise<{ message: string }> {

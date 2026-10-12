@@ -73,13 +73,15 @@ export function buildInvoiceItems(
       const rent = row.rentCharged ?? row.rentRate ?? 0;
       if (rent > 0) push({ description: "Monthly Rent", amount: rent });
 
-      if (row.deposit > 0) push({ description: "Security Deposit", amount: row.deposit });
+      // A move can credit a deposit difference, so a negative deposit is shown too.
+      if (row.deposit) push({ description: row.deposit > 0 ? "Security Deposit" : "Deposit Credit", amount: row.deposit });
       if (row.arrearsbf > 0) push({ description: "Arrears Brought Forward", amount: row.arrearsbf });
 
       const prev = getPreviousMonthRow(data?.summary, year, month);
       const carried = prev?.balance ?? 0;
       if (carried > 0) push({ description: "Arrears Balance", amount: carried });
       else if (carried < 0) push({ description: "Credit Balance (overpayment)", amount: carried });
+      if (row.transfer) push({ description: row.transferNote ?? "Balance Transfer", amount: row.transfer });
 
       if ((row.waterCharge ?? 0) > 0) {
         push({

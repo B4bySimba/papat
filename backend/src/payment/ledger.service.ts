@@ -1,32 +1,88 @@
 import { Injectable } from '@nestjs/common';
 import prisma from 'lib/db';
-import { computeLeaseLedger, endOfLocalDay, MonthRow } from './ledger.util';
+import { Prisma } from 'generated/prisma/client';
+import {
+  computeLeaseLedger,
+  endOfLocalDay,
+  generateCharges,
+  LeaseFieldsForLedger,
+  MonthRow,
+  moveOutBalance,
+} from './ledger.util';
+
+const ROLLBACK = Symbol('preview');
+
+/** Runs `write` in one transaction. A preview rolls it back but still returns what `write` returned. */
+export async function previewable<T>(preview: boolean, write: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+  let result!: T;
+  try {
+    return await prisma.$transaction(
+      async (tx) => {
+        result = await write(tx);
+        if (preview) throw ROLLBACK;
+        return result;
+      },
+      { timeout: 60_000 },
+    );
+  } catch (e) {
+    if (e === ROLLBACK) return result;
+    throw e;
+  }
+}
 
 /**
  * Loads every lease's ledger inputs in three queries instead of three per lease,
  * then runs the pure engine. Nothing is stored: each call reads current rows, so a
- * back-dated payment is reflected the moment it lands.
+ * back-dated payment is reflected the moment it lands. `db` can be a transaction,
+ * which is how a preview sees a change before it is saved.
  */
 @Injectable()
 export class LedgerService {
-  async ledgersFor(leaseIds: number[], includePastTenants = false): Promise<Map<number, MonthRow[]>> {
+  async ledgersFor(
+    leaseIds: number[],
+    includePastTenants = false,
+    db: Prisma.TransactionClient = prisma,
+  ): Promise<Map<number, MonthRow[]>> {
     const ledgers = new Map<number, MonthRow[]>();
     if (!leaseIds.length) return ledgers;
 
-    const [leases, readings, payments] = await Promise.all([
-      prisma.lease.findMany({ where: { id: { in: leaseIds } } }),
-      prisma.meterReading.findMany({
-        where: { leaseId: { in: leaseIds } },
-        // id breaks ties: two readings closing the same period must order the same way twice.
-        orderBy: [{ readOn: 'asc' }, { id: 'asc' }],
-        select: { leaseId: true, readOn: true, currentReading: true, billingPeriod: true, isMeterReset: true },
-      }),
-      prisma.payment.findMany({
-        where: { leaseId: { in: leaseIds } },
-        orderBy: [{ date: 'asc' }, { id: 'asc' }],
-        select: { leaseId: true, date: true, amount: true, paymentMethod: true, reference: true },
-      }),
-    ]);
+    const load = (ids: number[]) =>
+      Promise.all([
+        db.lease.findMany({
+          where: { id: { in: ids } },
+          include: {
+            rates: { orderBy: { month: 'asc' } },
+            movedFrom: { select: { unit: { select: { number: true } } } },
+            movedTo: { select: { unit: { select: { number: true } } } },
+          },
+        }),
+        db.meterReading.findMany({
+          where: { leaseId: { in: ids } },
+          // id breaks ties: two readings closing the same period must order the same way twice.
+          orderBy: [{ readOn: 'asc' }, { id: 'asc' }],
+          select: { leaseId: true, readOn: true, currentReading: true, billingPeriod: true, isMeterReset: true },
+        }),
+        db.payment.findMany({
+          where: { leaseId: { in: ids } },
+          orderBy: [{ date: 'asc' }, { id: 'asc' }],
+          select: { leaseId: true, date: true, amount: true, paymentMethod: true, reference: true },
+        }),
+      ]);
+    const [leases, readings, payments] = await load(leaseIds);
+
+    // A moved tenant's carried balance comes from the lease they left, so load that one too.
+    const loaded = new Set(leaseIds);
+    for (;;) {
+      const missing = leases
+        .map((l) => l.movedFromLeaseId)
+        .filter((id): id is number => id !== null && !loaded.has(id));
+      if (!missing.length) break;
+      missing.forEach((id) => loaded.add(id));
+      const [l, r, p] = await load(missing);
+      leases.push(...l);
+      readings.push(...r);
+      payments.push(...p);
+    }
 
     const groupByLease = <T extends { leaseId: number | null }>(rows: T[]) => {
       const byLease = new Map<number, T[]>();
@@ -41,13 +97,42 @@ export class LedgerService {
     const paymentsBy = groupByLease(payments);
 
     const today = endOfLocalDay(new Date());
+    // Whole-day horizon: the rows stay valid until midnight rather than drifting by the hour.
+    const asOfFor = (lease: (typeof leases)[number]) => (lease.terminationDate ? new Date(lease.terminationDate) : today);
+    const byId = new Map(leases.map((l) => [l.id, l]));
+    const transfers = new Map<number, number>();
+
+    const input = (lease: (typeof leases)[number]): LeaseFieldsForLedger => {
+      const from = lease.movedFromLeaseId === null ? undefined : byId.get(lease.movedFromLeaseId);
+      return {
+        ...lease,
+        movedOut: !!lease.movedTo,
+        transferIn: from?.terminationDate ? transferOut(from) : undefined,
+        transferNote: lease.movedTo
+          ? `Moved to unit ${lease.movedTo.unit.number}`
+          : lease.movedFrom
+            ? `Brought from unit ${lease.movedFrom.unit.number}`
+            : undefined,
+      };
+    };
+    const transferOut = (lease: (typeof leases)[number]) => {
+      let owed = transfers.get(lease.id);
+      if (owed === undefined) {
+        const charges = generateCharges(input(lease), readingsBy.get(lease.id) ?? [], asOfFor(lease));
+        owed = moveOutBalance(charges, paymentsBy.get(lease.id) ?? [], lease.terminationDate!);
+        transfers.set(lease.id, owed);
+      }
+      return owed;
+    };
+
+    const wanted = new Set(leaseIds);
     for (const lease of leases) {
-      // Whole-day horizon: the rows stay valid until midnight rather than drifting by the hour.
-      const asOf = lease.terminationDate ? new Date(lease.terminationDate) : today;
+      if (!wanted.has(lease.id)) continue;
+      const asOf = asOfFor(lease);
       const rowsUntil = includePastTenants && asOf < today ? today : asOf;
       ledgers.set(
         lease.id,
-        computeLeaseLedger(lease, readingsBy.get(lease.id) ?? [], paymentsBy.get(lease.id) ?? [], asOf, rowsUntil),
+        computeLeaseLedger(input(lease), readingsBy.get(lease.id) ?? [], paymentsBy.get(lease.id) ?? [], asOf, rowsUntil),
       );
     }
     return ledgers;

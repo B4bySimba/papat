@@ -196,12 +196,9 @@ export class TenantController {
     return this.tenantService.remove(+id);
   }
 
-  @Patch('edit-lease/:id')
-  async updateLease(@Param('id') id: string, @Body() data: any) {
-    return prisma.lease.update({
-      where: { id: +id },
-      data,
-    });
+  @Post('move/:id')
+  move(@Param('id', HashidPipe) id: string, @Body() body: any) {
+    return this.tenantService.moveTenant(+id, { ...body, toUnitId: this.hashidService.decode(body.toUnitId) });
   }
 
   @Get('lease/:code')

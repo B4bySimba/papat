@@ -15,12 +15,13 @@ served by the V2 engine described here.
 
 ## 1. Inputs
 
-Everything is computed **from scratch on every request** from four sources of
+Everything is computed **from scratch on every request** from these sources of
 truth. Nothing is stored derived; there is no "posted invoice" table.
 
 | Source | Fields that matter |
 |---|---|
-| `Lease` | `startDate` (billing begins), `terminationDate` (billing ends; else "now"), `rentDue` (day-of-month the bill is due, e.g. `5`), `rentRate`, `deposit`, `arrearsbf`, `onEntryMeterReading`, `waterRate`, `serviceCharge`, `garbageFee`, `additional`+`additionalCharges`, `added_field_1..7`+`_price` |
+| `Lease` | `startDate` (billing begins), `terminationDate` (billing ends; else "now"), `rentDue` (day-of-month the bill is due, e.g. `5`), `rentRate`, `deposit`, `arrearsbf`, `onEntryMeterReading`, `waterRate`, `serviceCharge`, `garbageFee`, `additional`+`additionalCharges`, `added_field_1..7`+`_price` (the monthly terms here are the **move-in** terms), `movedFromLeaseId` (set when the tenant moved here from another unit) |
+| `RateChange` | `month` (`"YYYY-MM"`) plus any monthly term above; null means unchanged. Rows with `leaseId` change one tenancy from that month on; rows with `houseId` are a property's schedule, copied to tenants who move in later. See §12 |
 | `MeterReading` | `currentReading` (odometer), `billingPeriod` (**the** month this reading closes; `null` = opening/unassigned → never billed), `isMeterReset` (new physical meter → becomes baseline, no usage billed), `readOn` (log time only, **not used** by billing) |
 | `payment` | `amount`, `date` |
 | Clock | `asOf = lease.terminationDate ?? now` |
@@ -56,9 +57,13 @@ is reached (`≤ asOf`):
 |---|---|---|---|
 | `arrearsbf` | `startDate` | once | `lease.arrearsbf` |
 | `deposit` | `startDate` | once | `lease.deposit` |
-| `rent` | the 1st of M (first month: `startDate`) | every month, unless the tenant moved out before M's due date | `rentRate` |
-| extras: `garbageFee`, `additional`, `added_field_1..7` | same date as that month's rent | every month **except the first**, same rule | each price |
-| `water` | the 1st of the month **after** the reading's `billingPeriod`, or the move-out date if earlier | one per closing reading whose `billingPeriod` is in or after the first month | `usage × waterRate + (usage > 0 ? serviceCharge : 0)` |
+| `rent` | the 1st of M (first month: `startDate`) | every month, unless the tenant moved out before M's due date | `rentRate` in force in M |
+| extras: `garbageFee`, `additional`, `added_field_1..7` | same date as that month's rent | every month **except the first**, same rule | each price in force in M |
+| `water` | the 1st of the month **after** the reading's `billingPeriod`, or the move-out date if earlier | one per closing reading whose `billingPeriod` is in or after the first month | `usage × waterRate + (usage > 0 ? serviceCharge : 0)`, at the rates in force in the month it is **billed** |
+| `transfer` | move day (see §12) | only for a tenant who moved units | the balance carried across |
+
+"In force in M" means the move-in terms with every `RateChange` up to M applied
+(`termsAt`), so the due date in M uses M's `rentDue` too.
 
 Water used in month M can only be measured once M is over, so it is billed with
 M+1's charges: the first month has no water, and its usage bills in month 2.
@@ -110,6 +115,8 @@ at end of M−1:
 | `billingDate` | `YYYY-MM-DD` of M's due date |
 | `deposit`, `arrearsbf` | posted amounts, first month only (0 otherwise) |
 | `extraCharges` | `{label: amount}` of extras posted in M |
+| `rentRate`, `waterRate` | the rates in force in M (after move-out: the final ones) |
+| `transfer`, `transferNote` | balance moved out (negative) or brought in (positive) in M, e.g. "Moved to unit 7"; 0 and null otherwise |
 | `payments` | raw payments dated in M |
 
 Identity to remember: `expected(M) = carryForward(M) + currentCharges(M)` and
@@ -163,7 +170,8 @@ tenant's page and the transactions list.
    predates the field). Omitted only when genuinely not billed (terminated
    before due).
 2. **Security Deposit** / **Arrears B/F**: first-month rows only (`deposit`,
-   `arrearsbf` fields).
+   `arrearsbf` fields). A negative deposit (a move's deposit credit) shows as
+   **Deposit Credit**.
 3. **Arrears Balance**: previous row's `balance` if positive. Previous row for
    January is **December of the previous year** (the old code looked in the
    same year, a year-boundary bug, and also subtracted rent from it for no
@@ -171,6 +179,8 @@ tenant's page and the transactions list.
 4. **Water Charge**: the row's `waterCharge` (already includes service
    charge), with usage/rate/readings shown from the row's meter fields.
 5. **Extras**: every entry of `extraCharges`.
+6. **Transfer**: the row's `transfer` under its `transferNote` ("Moved to
+   unit 7" / "Brought from unit 3").
 
 **Invariant: invoice total = the row's `expected`** (to rounding). The
 generated invoice *is* the month's statement. `dueDate = billingDate`, and the
@@ -221,7 +231,7 @@ the row's `expected`.
 | two readings closing the same month | both bill; row water fields are the sums |
 | negative usage (typo, not flagged reset) | clamped to 0 |
 | same-day charge + payment | charge sorts first; payment settles it |
-| rentRate/serviceCharge changes | not versioned: current lease values apply to all history (known limitation, unchanged) |
+| a monthly term changes | applies from its month (whole months) until the next change; earlier months never change; the move-in month corrects every month (§12) |
 
 ## 11. Timezone convention
 
@@ -230,3 +240,65 @@ in Africa/Nairobi (`main.ts` refuses to start otherwise; Docker sets `TZ`).
 `billingPeriod` is written as the Nairobi month start (`parseMonth`). The meter
 form requires it ("For Month") except for an opening reading. `readOn` never
 affects money.
+
+## 12. Changes and moves
+
+**Changing a term.** A change sets any monthly term from a chosen month (always
+from the 1st) until the next change. Only the fields that differ from the terms
+in force just before that month are stored, so a change saved later never
+undoes an earlier one (rent from January and garbage from November both hold).
+Picking the move-in month corrects the lease's own terms for every month.
+Changes can be back-dated or recorded ahead: they apply whenever their month is
+reached, because nothing is stored derived. The form previews the effect by
+running the real save in a transaction and rolling it back.
+
+A sitting tenant's rent change also sets the unit's rent (the next tenant's
+pre-fill). A new deposit entered with it only goes on the unit; the sitting
+tenant is never charged a top-up.
+
+Example (rent 10 000 + garbage 300, rent to 11 000 from March, tenant pays
+10 300 a month):
+
+| Month | Carry fwd | Rent | Charges | Expected | Paid | Balance |
+|---|---|---|---|---|---|---|
+| Jan | 0 | 10 000 | 20 000 | 20 000 | 20 000 | 0 |
+| Feb | 0 | 10 000 | 10 300 | 10 300 | 10 300 | 0 |
+| Mar | 0 | 11 000 | 11 300 | 11 300 | 10 300 | 1 000 |
+| Apr | 1 000 | 11 000 | 11 300 | 12 300 | 10 300 | 2 000 |
+
+Water uses the rate in force when the bill goes out: with the water rate going
+from 100 to 120 in March, February's 20 units billed on 1 March cost
+20 × 120 + 200 = 2 600.
+
+**Property-wide change.** Saves the property's own row (its schedule), then the
+same change for every ticked current tenant, plus any new unit rents (vacant
+units included). Tenants only receive the terms this change sets or undoes, so
+a later water change leaves an unticked garbage deal alone. A tenant who moved
+in after the chosen month gets it from their move-in month. A tenant added later
+starts on the property's terms in force at their start and receives the
+property's later scheduled changes as their own.
+
+**Moving units** (same property). The old lease ends on the move day and a new
+tenant record and lease start on the new unit, linked by `movedFromLeaseId`:
+
+- The old unit skips the move month's rent and extras but still bills its water
+  (the previous month's on the 1st, and a final reading on the move day).
+- At the end of the move day the old lease posts a transfer of minus what was
+  owed (`moveOutBalance`: all charges less every payment up to that day), so it
+  closes at exactly 0. The new lease posts the same amount on its start date.
+  Both read it live, so a later edit on the old lease still carries across.
+- The new unit bills the move month's rent and its extras (the "no extras in
+  the first month" rule does not apply to a moved tenant), on the new unit's
+  normal charges.
+- The new lease's `deposit` holds only what the move charged: 0 when the deposit
+  moves as it is, or the difference (negative when it is a credit). The deposit
+  held is the sum along the chain of moves.
+- Payments already entered for dates after the move go to the new lease.
+
+Example: owes 4 000 at the end of February, moves from unit 3 to unit 7 on
+15 March; February's water 500 and the final reading's 300 bill on unit 3:
+
+| Unit | Month | Carry fwd | Charges | Transfer | Expected | Balance |
+|---|---|---|---|---|---|---|
+| 3 | Mar | 4 000 | 800 | -4 800 | 0 | 0 |
+| 7 | Mar | 0 | 12 300 (rent + garbage) | 4 800 | 17 100 | 17 100 |

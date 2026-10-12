@@ -1,12 +1,17 @@
 import {
   billingDateFor,
   buildLedger,
+  changeFor,
   computeLeaseLedger,
   endOfLocalDay,
   formatMonth,
   generateCharges,
+  ledgerImpact,
+  moveOutBalance,
   parseMonth,
+  rateFields,
   sortSummaryMonths,
+  termsAt,
   ChargeEvent,
   LeaseFieldsForLedger,
   ReadingPoint,
@@ -360,6 +365,172 @@ describe('computeLeaseLedger', () => {
       previous = current;
     }
     expect(previous.size).toBeGreaterThan(12);
+  });
+});
+
+// Example 1 of the rent-change plan: rent 10 000 -> 11 000 from March, tenant keeps paying 10 300.
+describe('rate changes', () => {
+  const lease: LeaseFieldsForLedger = {
+    ...baseLease,
+    startDate: new Date(2025, 0, 1),
+    deposit: 10000,
+    arrearsbf: 0,
+    added_field_1: null,
+    added_field_1_price: 0,
+  };
+  const payments = [
+    { date: new Date(2025, 0, 2), amount: 20000 },
+    { date: new Date(2025, 1, 2), amount: 10300 },
+    { date: new Date(2025, 2, 2), amount: 10300 },
+    { date: new Date(2025, 3, 2), amount: 10300 },
+  ];
+  const asOf = endOfLocalDay(new Date(2025, 3, 30));
+  const raised = { ...lease, rates: [{ month: '2025-03', rentRate: 11000 }] };
+
+  it('applies a change from its month on and leaves earlier months exactly as they were', () => {
+    const before = computeLeaseLedger(lease, [], payments, asOf);
+    const after = computeLeaseLedger(raised, [], payments, asOf);
+    expect(after.slice(0, 2)).toEqual(before.slice(0, 2));
+    expect(after.map((r) => [r.month, r.rentRate, r.currentCharges, r.expected, r.balance])).toEqual([
+      ['January', 10000, 20000, 20000, 0],
+      ['February', 10000, 10300, 10300, 0],
+      ['March', 11000, 11300, 11300, 1000],
+      ['April', 11000, 11300, 12300, 2000],
+    ]);
+    expect(computeLeaseLedger({ ...lease, rates: [] }, [], payments, asOf)).toEqual(before);
+  });
+
+  it('reports the months a change touches and the balance before and after, for the preview', () => {
+    const impact = ledgerImpact(computeLeaseLedger(lease, [], payments, asOf), computeLeaseLedger(raised, [], payments, asOf));
+    expect(impact).toEqual({
+      months: [
+        { month: 'March 2025', before: 10300, after: 11300 },
+        { month: 'April 2025', before: 10300, after: 11300 },
+      ],
+      balanceBefore: 0,
+      balanceAfter: 2000,
+    });
+  });
+
+  it('stores only what changed, so a later change does not undo an earlier one', () => {
+    const jan = changeFor(lease, '2026-01', { ...rateFields(lease), rentRate: 11000 })!;
+    expect(jan).toMatchObject({ rentRate: 11000, garbageFee: null });
+    const scheduled = { ...lease, rates: [{ month: '2026-01', ...jan }] };
+    const nov = changeFor(scheduled, '2025-11', { ...rateFields(termsAt(scheduled, parseMonth('2025-11'))), garbageFee: 400 })!;
+    expect(nov).toMatchObject({ garbageFee: 400, rentRate: null });
+    const both = { ...lease, rates: [{ month: '2025-11', ...nov }, { month: '2026-01', ...jan }] };
+    expect(termsAt(both, parseMonth('2025-12'))).toMatchObject({ rentRate: 10000, garbageFee: 400 });
+    expect(termsAt(both, parseMonth('2026-01'))).toMatchObject({ rentRate: 11000, garbageFee: 400 });
+  });
+
+  it('keeps fields a partial change leaves out, and drops a change that no longer differs', () => {
+    const saved = { ...lease, rates: [{ month: '2025-03', ...rateFields({}), rentRate: 11000 }] };
+    expect(changeFor(saved, '2025-03', { garbageFee: 400 })).toMatchObject({ rentRate: 11000, garbageFee: 400 });
+    expect(changeFor(saved, '2025-03', { rentRate: 10000 })).toBeNull();
+  });
+
+  it('bills water at the rate in force in the month the bill goes out', () => {
+    const readings: ReadingPoint[] = [
+      { readOn: new Date(2025, 1, 1), currentReading: 110, billingPeriod: new Date(2025, 0, 1), isMeterReset: false },
+      { readOn: new Date(2025, 2, 1), currentReading: 130, billingPeriod: new Date(2025, 1, 1), isMeterReset: false },
+    ];
+    const water = byLabel(generateCharges({ ...lease, rates: [{ month: '2025-03', waterRate: 120 }] }, readings, asOf), 'water');
+    expect(water.map((w) => w.amount)).toEqual([10 * 100 + 200, 20 * 120 + 200]);
+  });
+
+  it('uses the due day in force that month, for the charge and for the billing date', () => {
+    const left = { ...lease, terminationDate: new Date(2025, 2, 20) };
+    const later = { ...left, rates: [{ month: '2025-03', rentDue: 25 }] };
+    expect(byLabel(generateCharges(left, [], left.terminationDate), 'rent')).toHaveLength(3);
+    expect(byLabel(generateCharges(later, [], later.terminationDate), 'rent')).toHaveLength(2);
+    expect(computeLeaseLedger(later, [], [], later.terminationDate)[2].billingDate).toBe('2025-03-25');
+  });
+
+  it('shows a past tenant the terms they left on, not a change they never reached', () => {
+    const left = { ...lease, terminationDate: new Date(2025, 2, 20), rates: [{ month: '2025-05', rentRate: 12000 }] };
+    const rows = computeLeaseLedger(left, [], [], left.terminationDate, new Date(2025, 5, 30));
+    expect(rows.map((r) => r.rentRate)).toEqual([10000, 10000, 10000, 10000, 10000, 10000]);
+  });
+
+  it('stops an extra by setting it to 0 from a month', () => {
+    const withExtra = { ...baseLease, rates: [{ month: '2025-03', added_field_1_price: 0 }] };
+    const security = byLabel(generateCharges(withExtra, [], asOf), 'security');
+    expect(security.map((e) => e.date)).toEqual([new Date(2025, 1, 1)]);
+  });
+
+  it('with changes scheduled ahead, still only appends months as the clock advances', () => {
+    const scheduled = { ...lease, rates: [{ month: '2025-06', rentRate: 11000 }, { month: '2025-09', garbageFee: 400 }] };
+    const key = (r: { year: number; month: string }) => `${r.year}-${r.month}`;
+    const snap = (d: Date) =>
+      new Map(computeLeaseLedger(scheduled, [], payments, endOfLocalDay(d)).map((r) => [key(r), JSON.stringify(r)]));
+    let previous = snap(scheduled.startDate);
+    for (let day = 1; day <= 400; day++) {
+      const current = snap(new Date(2025, 0, 1 + day));
+      for (const [k, v] of previous) expect(current.get(k)).toBe(v);
+      previous = current;
+    }
+  });
+});
+
+// Example 6 of the plan: owes 4 000 at the end of February, moves from unit 3 to unit 7 on 15 March.
+describe('moving units', () => {
+  const movedOn = new Date(2025, 2, 15);
+  const old: LeaseFieldsForLedger = {
+    ...baseLease,
+    startDate: new Date(2025, 0, 1),
+    terminationDate: movedOn,
+    serviceCharge: 0,
+    deposit: 0,
+    arrearsbf: 0,
+    onEntryMeterReading: 0,
+    added_field_1: null,
+    added_field_1_price: 0,
+    movedOut: true,
+    transferNote: 'Moved to unit 7',
+  };
+  const readings: ReadingPoint[] = [
+    { readOn: new Date(2025, 2, 1), currentReading: 5, billingPeriod: new Date(2025, 1, 1), isMeterReset: false },
+    { readOn: movedOn, currentReading: 8, billingPeriod: new Date(2025, 2, 1), isMeterReset: false },
+  ];
+  const payments = [{ date: new Date(2025, 1, 10), amount: 16300 }];
+  const next: LeaseFieldsForLedger = {
+    ...old,
+    startDate: movedOn,
+    terminationDate: null,
+    rentRate: 12000,
+    movedOut: false,
+    transferNote: 'Brought from unit 3',
+  };
+  const endOfMarch = endOfLocalDay(new Date(2025, 2, 31));
+
+  it('closes the old unit at 0 and opens the new one with the balance, counted once', () => {
+    const owed = moveOutBalance(generateCharges(old, readings, movedOn), payments, movedOn);
+    expect(owed).toBe(4000 + 500 + 300);
+
+    const mar = computeLeaseLedger(old, readings, payments, movedOn).at(-1)!;
+    expect(mar).toMatchObject({ month: 'March', carryForward: 4000, rentCharged: 0, extraCharges: {} });
+    expect(mar).toMatchObject({ transfer: -4800, transferNote: 'Moved to unit 7', expected: 0, balance: 0 });
+
+    const first = computeLeaseLedger({ ...next, transferIn: owed }, [], [], endOfMarch)[0];
+    expect(first).toMatchObject({ month: 'March', rentCharged: 12000, extraCharges: { garbageFee: 300 } });
+    expect(first).toMatchObject({ transfer: 4800, transferNote: 'Brought from unit 3', expected: 17100, balance: 17100 });
+    expect(mar.balance + first.balance).toBe(4000 + 800 + 12300);
+  });
+
+  it('includes a payment made later on the move day, so the old unit still closes at 0', () => {
+    const paid = [...payments, { date: new Date(2025, 2, 15, 14), amount: 1000 }];
+    const mar = computeLeaseLedger(old, readings, paid, movedOn).at(-1)!;
+    expect(mar).toMatchObject({ collected: 1000, transfer: -3800, balance: 0 });
+  });
+
+  it('a negative deposit on the new unit is a credit for the deposit difference', () => {
+    const first = computeLeaseLedger({ ...next, transferIn: 4800, deposit: -2000 }, [], [], endOfMarch)[0];
+    expect(first.expected).toBe(17100 - 2000);
+  });
+
+  it('without the link the old unit is an ordinary move-out again', () => {
+    const mar = computeLeaseLedger({ ...old, movedOut: false }, readings, payments, movedOn).at(-1)!;
+    expect(mar).toMatchObject({ rentCharged: 10000, transfer: 0, transferNote: null });
   });
 });
 

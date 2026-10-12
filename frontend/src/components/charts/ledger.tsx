@@ -29,7 +29,10 @@ interface LedgerEntry {
   year: number;
   month: string;
   carryForward: number;
+  rentCharged: number;
   currentCharges: number;
+  transfer: number;
+  transferNote: string | null;
   expected: number;
   collected: number;
   balance: number;
@@ -53,7 +56,10 @@ export default function Ledger({ data, year }: LedgerProps) {
       year: parseInt(year),
       month: entry.month,
       carryForward: entry.carryForward || 0,
-      currentCharges: entry.currentCharges || 0,
+      rentCharged: entry.rentCharged || 0,
+      currentCharges: (entry.currentCharges || 0) - (entry.transfer || 0),
+      transfer: entry.transfer || 0,
+      transferNote: entry.transferNote ?? null,
       expected: entry.expected,
       collected: entry.collected || 0,
       balance: entry.balance || 0,
@@ -98,11 +104,25 @@ export default function Ledger({ data, year }: LedgerProps) {
                 </p>
               </div>
               <div>
+                <p className="text-sm text-muted-foreground">Rent</p>
+                <p className="font-semibold text-lg">
+                  {entry.rentCharged ? `Ksh.${entry.rentCharged.toLocaleString()}` : "-"}
+                </p>
+              </div>
+              <div>
                 <p className="text-sm text-muted-foreground">Current Charges</p>
                 <p className="font-semibold text-lg">
                   Ksh.{entry.currentCharges.toLocaleString()}
                 </p>
               </div>
+              {entry.transfer !== 0 && (
+                <div>
+                  <p className="text-sm text-muted-foreground">{entry.transferNote ?? "Transfer"}</p>
+                  <p className="font-semibold text-lg">
+                    Ksh.{entry.transfer.toLocaleString()}
+                  </p>
+                </div>
+              )}
             </div>
             water billage
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-4">

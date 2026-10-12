@@ -39,7 +39,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import StatCard from "@/components/StatCard";
 import Link from "next/link";
-import MoveTenantSheet from "@/components/tenant/MoveTenantSheet";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Textarea } from "@/components/ui/textarea";
@@ -64,13 +63,6 @@ export default function UnitCards({
   refreshTenant,
   onUpdateTenant,
 }: Props) {
-  const [moveSheetOpen, setMoveSheetOpen] = useState(false);
-  const availableUnits = [
-    { id: "101", label: "Unit A - 1st Floor" },
-    { id: "102", label: "Unit B - 2nd Floor" },
-    { id: "103", label: "Unit C - 3rd Floor" },
-  ];
-
   const router = useRouter();
   const [editMode, setEditMode] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -871,17 +863,6 @@ export default function UnitCards({
           </SheetFooter>
         </SheetContent>
       </Sheet>
-
-      <MoveTenantSheet
-        open={moveSheetOpen}
-        onOpenChange={setMoveSheetOpen}
-        currentUnitId={unitId}
-        availableUnits={availableUnits}
-        onConfirm={(newUnitId) => {
-          console.log(`Move tenant from ${unitId} to ${newUnitId}`);
-          // await moveTenant(unitId, newUnitId);
-        }}
-      />
 
       <LedgerModal
         name={tenant.tenant.name}

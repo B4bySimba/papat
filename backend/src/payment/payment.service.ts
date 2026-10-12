@@ -2260,7 +2260,7 @@ export class PaymentService {
       };
       units.set(lease.unit.id, unit);
       if (lease.startDate >= unit.startDate) {
-        unit.rentRate = lease.rentRate ?? null;
+        unit.rentRate = (months.at(-1) ?? inYear[inYear.length - 1]).rentRate;
         unit.startDate = lease.startDate;
       }
       unit.totalExpected += totalExpected;
