@@ -4,6 +4,7 @@ import type React from "react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/DateInput";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -409,12 +410,11 @@ export function LogPaymentFloating({
                   <Label htmlFor="date" className="text-xs">
                     Date
                   </Label>
-                  <Input
+                  <DateInput
                     id="date"
-                    type="date"
                     value={formData.date}
-                    onChange={(e) =>
-                      setFormData({ ...formData, date: e.target.value })
+                    onChange={(value) =>
+                      setFormData({ ...formData, date: value })
                     }
                     className="h-8"
                   />

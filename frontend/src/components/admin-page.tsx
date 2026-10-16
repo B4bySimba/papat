@@ -472,7 +472,7 @@ export default function AdminPage() {
                       </div>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {new Date(user.createdAt).toLocaleDateString()}
+                      {new Date(user.createdAt).toLocaleDateString("en-GB")}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {user.lastActive}

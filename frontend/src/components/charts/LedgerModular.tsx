@@ -394,7 +394,7 @@ const handlePrint = async () => {
                                   {entry.payments.map((p: Payment, i: number) => (
                                     <TableRow key={i}>
                                       <TableCell className="font-medium">
-                                        {new Date(p.date).toLocaleDateString()}
+                                        {new Date(p.date).toLocaleDateString("en-GB")}
                                       </TableCell>
                                       <TableCell>Ksh.{p.amount.toLocaleString()}</TableCell>
                                       <TableCell className="capitalize">{p.method.replace("-", " ")}</TableCell>
@@ -458,7 +458,7 @@ const handlePrint = async () => {
                                   {entry.payments.map((payment, i) => (
                                     <TableRow key={i}>
                                       <TableCell className="py-1 px-2 text-sm print:p-1 print:text-xs">
-                                        {new Date(payment.date).toLocaleDateString()}
+                                        {new Date(payment.date).toLocaleDateString("en-GB")}
                                       </TableCell>
                                       <TableCell className="py-1 px-2 text-sm print:p-1 print:text-xs">
                                         Ksh.{payment.amount.toLocaleString()}

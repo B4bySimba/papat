@@ -63,9 +63,9 @@ export default function MeterReadingsPage() {
       const d = new Date(date);
       return d.toLocaleDateString("en-GB", {
         day: "2-digit",
-        month: "short",
+        month: "2-digit",
         year: "numeric",
-      }); // outputs: 30 Jul 2025
+      }); // outputs: 30/07/2025
     }
     
     try {

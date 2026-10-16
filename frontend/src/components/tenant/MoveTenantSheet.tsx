@@ -11,6 +11,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/DateInput";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -160,7 +161,7 @@ export default function MoveTenantSheet({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label htmlFor="moveDate">Move date</Label>
-              <Input id="moveDate" type="date" max={today()} value={date} onChange={(e) => { setDate(e.target.value); setResult(null); }} />
+              <DateInput id="moveDate" max={today()} value={date} onChange={(value) => { setDate(value); setResult(null); }} />
             </div>
             <div>
               <Label htmlFor="moveRent">Rent on the new unit</Label>

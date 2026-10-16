@@ -36,6 +36,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/DateInput";
 import { Label } from "@/components/ui/label";
 import StatCard from "@/components/StatCard";
 import Link from "next/link";
@@ -798,11 +799,10 @@ export default function UnitCards({
           <div className="space-y-4 flex-1 overflow-auto pr-2">
             <div>
               <Label htmlFor="terminationDate">Termination Date</Label>
-              <Input
+              <DateInput
                 id="terminationDate"
-                type="date"
                 value={terminationDate}
-                onChange={(e) => setTerminationDate(e.target.value)}
+                onChange={setTerminationDate}
               />
             </div>
 

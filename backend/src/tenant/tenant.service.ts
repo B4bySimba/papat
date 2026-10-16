@@ -389,21 +389,21 @@ export class TenantService {
       moveInDate: moveInDate
         ? new Date(moveInDate).toLocaleDateString('en-GB', {
             day: '2-digit',
-            month: 'short',
+            month: '2-digit',
             year: 'numeric',
           })
         : null,
       startDate: startDate
         ? new Date(startDate).toLocaleDateString('en-GB', {
             day: '2-digit',
-            month: 'short',
+            month: '2-digit',
             year: 'numeric',
           })
         : null,
       endDate: endDate
         ? new Date(endDate).toLocaleDateString('en-GB', {
             day: '2-digit',
-            month: 'short',
+            month: '2-digit',
             year: 'numeric',
           })
         : null,
@@ -568,14 +568,14 @@ export class TenantService {
       moveInDate: lease.moveInDate
         ? new Date(lease.moveInDate).toLocaleDateString('en-GB', {
             day: '2-digit',
-            month: 'short',
+            month: '2-digit',
             year: 'numeric',
           })
         : 'No date',
       moveOutDate: lease.terminationDate
         ? new Date(lease.terminationDate).toLocaleDateString('en-GB', {
             day: '2-digit',
-            month: 'short',
+            month: '2-digit',
             year: 'numeric',
           })
         : 'No date',

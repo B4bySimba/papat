@@ -168,7 +168,7 @@ export class UnitService {
         moveInDate: activeLease?.moveInDate
           ? new Date(activeLease.moveInDate).toLocaleDateString('en-GB', {
               day: '2-digit',
-              month: 'short',
+              month: '2-digit',
               year: 'numeric',
             })
           : null,

@@ -568,7 +568,7 @@ export class PaymentService {
       const formattedDate = p.date
         ? new Date(p.date).toLocaleDateString('en-GB', {
             day: '2-digit',
-            month: 'short',
+            month: '2-digit',
             year: 'numeric',
           })
         : null;
@@ -659,7 +659,7 @@ export class PaymentService {
       const formattedDate = p.date
         ? new Date(p.date).toLocaleDateString('en-GB', {
             day: '2-digit',
-            month: 'short',
+            month: '2-digit',
             year: 'numeric',
           })
         : null;
@@ -707,7 +707,7 @@ export class PaymentService {
       const formattedDate = p.date
         ? new Date(p.date).toLocaleDateString('en-GB', {
             day: '2-digit',
-            month: 'short',
+            month: '2-digit',
             year: 'numeric',
           })
         : null;
@@ -760,7 +760,7 @@ export class PaymentService {
       const formattedDate = p.date
         ? new Date(p.date).toLocaleDateString('en-GB', {
             day: '2-digit',
-            month: 'short',
+            month: '2-digit',
             year: 'numeric',
           })
         : null;
@@ -818,7 +818,7 @@ export class PaymentService {
       const formattedDate = p.date
         ? new Date(p.date).toLocaleDateString('en-GB', {
             day: '2-digit',
-            month: 'short',
+            month: '2-digit',
             year: 'numeric',
           })
         : null;

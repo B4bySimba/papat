@@ -69,7 +69,7 @@ export class MeterReadingService {
       const formattedDate = m.readOn
         ? new Date(m.readOn).toLocaleDateString('en-GB', {
             day: '2-digit',
-            month: 'short',
+            month: '2-digit',
             year: 'numeric',
           })
         : null;

@@ -77,6 +77,9 @@ export type DataTableProps<T> = {
   onEditClick?: (item: T) => void;
 };
 
+const dmyToIso = (v: any) =>
+  typeof v === "string" && /^\d{2}\/\d{2}\/\d{4}$/.test(v) ? v.split("/").reverse().join("-") : v;
+
 export function DataTable<T extends { id: string }>({
   data,
   onDelete,
@@ -147,8 +150,8 @@ export function DataTable<T extends { id: string }>({
 
   const filteredAndSortedData = filteredData.sort((a, b) => {
     if (!sortField) return 0;
-    let aValue = a[sortField];
-    let bValue = b[sortField];
+    let aValue = dmyToIso(a[sortField]);
+    let bValue = dmyToIso(b[sortField]);
 
     // Handle null values
     if (aValue === null) aValue = "" as any;

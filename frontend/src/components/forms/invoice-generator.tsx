@@ -193,7 +193,7 @@ export function MinimalInvoiceTemplate({ invoice, unit, property }: any) {
             <span className="font-medium">
               {new Date(invoice.dueDate).toLocaleDateString("en-GB", {
                 day: "2-digit",
-                month: "short",
+                month: "2-digit",
                 year: "numeric",
               })}
             </span>
@@ -226,7 +226,7 @@ export function MinimalInvoiceTemplate({ invoice, unit, property }: any) {
           Expected amount as of the due date,{" "}
           {new Date(invoice.dueDate).toLocaleDateString("en-GB", {
             day: "2-digit",
-            month: "short",
+            month: "2-digit",
             year: "numeric",
           })}
           .
@@ -284,7 +284,7 @@ export function DetailedInvoiceTemplate({ invoice, unit, property }: any) {
                 Due Date:{" "}
                 {new Date(invoice.dueDate).toLocaleDateString("en-GB", {
                   day: "2-digit",
-                  month: "short",
+                  month: "2-digit",
                   year: "numeric",
                 })}
               </p>
@@ -348,7 +348,7 @@ export function DetailedInvoiceTemplate({ invoice, unit, property }: any) {
             Expected amount as of the due date,{" "}
             {new Date(invoice.dueDate).toLocaleDateString("en-GB", {
               day: "2-digit",
-              month: "short",
+              month: "2-digit",
               year: "numeric",
             })}
             .

@@ -200,7 +200,7 @@ export function PropertyMonthly({
         </table>
         
         <div style="margin-top: 30px; font-size: 12px; color: #666; text-align: center;">
-          Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}
+          Generated on ${new Date().toLocaleDateString("en-GB")} at ${new Date().toLocaleTimeString()}
         </div>
       </body>
     </html>

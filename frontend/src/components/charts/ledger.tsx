@@ -187,7 +187,7 @@ export default function Ledger({ data, year }: LedgerProps) {
                       {entry.payments.map((p: Payment, i: number) => (
                         <TableRow key={i}>
                           <TableCell className="font-medium">
-                            {new Date(p.date).toLocaleDateString()}
+                            {new Date(p.date).toLocaleDateString("en-GB")}
                           </TableCell>
                           <TableCell>Ksh.{p.amount.toLocaleString()}</TableCell>
                           <TableCell className="capitalize">

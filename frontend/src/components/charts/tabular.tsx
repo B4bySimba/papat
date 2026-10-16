@@ -195,7 +195,7 @@ export function LedgerModal({
                                     <TableCell className="py-1 px-2 text-sm">
                                       {new Date(
                                         payment.date
-                                      ).toLocaleDateString()}
+                                      ).toLocaleDateString("en-GB")}
                                     </TableCell>
                                     <TableCell className="py-1 px-2 text-sm">
                                       Ksh.{payment.amount.toLocaleString()}

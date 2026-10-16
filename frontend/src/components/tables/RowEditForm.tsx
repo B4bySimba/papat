@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/DateInput";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -68,7 +69,13 @@ export function RowEditForm<T>({
             <label className="block text-sm font-medium text-gray-700">
               {field.label}
             </label>
-            <Input
+            {field.type === "date" ? (
+              <DateInput
+                value={String(form[field.key] ?? "")}
+                onChange={(value) => handleChange(field.key, value)}
+                className="bg-muted border border-input focus:ring-2 focus:ring-primary focus:outline-none"
+              />
+            ) : <Input
               type={field.type || "text"}
               value={String(form[field.key] ?? "")}
               onChange={(e) =>
@@ -80,7 +87,7 @@ export function RowEditForm<T>({
                 )
               }
               className="bg-muted border border-input focus:ring-2 focus:ring-primary focus:outline-none"
-            />
+            />}
           </div>
         ))}
 

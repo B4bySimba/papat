@@ -22,6 +22,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/DateInput";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -547,27 +548,25 @@ export function AddTenantModal({
                   <Label htmlFor="leaseStart">
                     Lease Start Date <span className="text-red-500">*</span>
                   </Label>
-                  <Input
-                    type="date"
+                  <DateInput
                     id="leaseStart"
                     className={cn(
                       submitted && !formData.leaseStart && "ring-1 ring-red-500"
                     )}
                     value={formData.leaseStart}
-                    onChange={(e) =>
-                      setFormData({ ...formData, leaseStart: e.target.value })
+                    onChange={(value) =>
+                      setFormData({ ...formData, leaseStart: value })
                     }
                   />
                 </div>
 
                 <div>
                   <Label htmlFor="leaseEnd">Lease End Date</Label>
-                  <Input
+                  <DateInput
                     id="leaseEnd"
-                    type="date"
                     value={formData.leaseEnd}
-                    onChange={(e) =>
-                      setFormData({ ...formData, leaseEnd: e.target.value })
+                    onChange={(value) =>
+                      setFormData({ ...formData, leaseEnd: value })
                     }
                   />
                 </div>

@@ -84,6 +84,7 @@ export default function TransactionsPage() {
       toast.success("Transaction updated successfully");
 
       // Update local state to reflect the edit without refetching
+      if (changes.date) changes.date = changes.date.split("-").reverse().join("/");
       setTransactions((prev) =>
         prev.map((tx) => (tx.id === updated.id ? { ...tx, ...changes } : tx))
       );

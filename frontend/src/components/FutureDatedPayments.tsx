@@ -11,7 +11,7 @@ export interface FutureDatedPayment {
 }
 
 const day = (d: string) =>
-  new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" });
 
 /** Payments typed with a future date are kept as entered; this makes them visible so someone checks the date. */
 export default function FutureDatedPayments({ payments }: { payments: FutureDatedPayment[] }) {
