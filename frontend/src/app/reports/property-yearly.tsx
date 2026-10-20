@@ -159,20 +159,42 @@ export function PropertyYearly({
   if (isLoading) {
     return (
       <div className="bg-background p-0 sm:min-h-screen sm:p-4">
-        <div className="max-w-full mx-auto space-y-6">
-          <div className="flex items-center gap-4">
-            <Skeleton className="h-10 w-10 rounded" />
-            <div className="space-y-2">
-              <Skeleton className="h-8 w-64" />
-              <Skeleton className="h-4 w-48" />
+        <div className="max-w-full mx-auto space-y-6" aria-busy="true">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+              <Skeleton className="h-10 w-10 shrink-0" />
+              <div className="min-w-0 space-y-2">
+                <Skeleton className="h-6 w-48 max-w-full sm:h-8 sm:w-64" />
+                <Skeleton className="h-4 w-40" />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2 sm:flex">
+              <Skeleton className="h-8 sm:w-20" />
+              <Skeleton className="h-8 sm:w-20" />
+              <Skeleton className="h-8 sm:w-20" />
             </div>
           </div>
-          <Skeleton className="h-96 w-full" />
+          <div className="overflow-hidden rounded-xl border">
+            <div className="flex h-10 items-center gap-4 border-b px-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className={i ? "h-3 w-14" : "h-3 w-24"} />
+              ))}
+            </div>
+            {Array.from({ length: 8 }).map((_, r) => (
+              <div key={r} className="flex h-10 items-center gap-4 border-b px-3 last:border-0">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={i} className={i ? "h-4 w-14" : "h-4 w-24"} />
+                ))}
+              </div>
+            ))}
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Skeleton className="h-24" />
-            <Skeleton className="h-24" />
-            <Skeleton className="h-24" />
-            <Skeleton className="h-24" />
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="space-y-3 rounded-xl border p-6">
+                <Skeleton className="h-3.5 w-24" />
+                <Skeleton className="h-7 w-32" />
+              </div>
+            ))}
           </div>
         </div>
       </div>

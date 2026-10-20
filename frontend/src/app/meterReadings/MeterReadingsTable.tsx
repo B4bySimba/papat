@@ -6,45 +6,28 @@ import { RowSheet } from "@/components/tables/rowSheet";
 import { DataTable, DataTableProps } from "@/components/tables/DataTable";
 import { RowEditForm } from "@/components/tables/RowEditForm";
 import { MeterReading } from "@/lib/meterReadingsSchema";
+import type { ServerTableState } from "@/hooks/use-server-table";
 
 type Props = {
-  data: MeterReading[];
+  table: ServerTableState<MeterReading>;
   onDelete: (id: string) => void;
   onSubmitEdit: (updated: MeterReading) => void;
 };
 
-export function MeterReadingsTable({ data, onDelete, onSubmitEdit }: Props) {
+export function MeterReadingsTable({ table, onDelete, onSubmitEdit }: Props) {
   const [selected, setSelected] = useState<MeterReading | null>(null);
   const [mode, setMode] = useState<"view" | "edit">("view");
-
-  const uniqueHouses = [
-    ...new Set(
-      data.map((tx) => JSON.stringify({ id: tx.houseId, name: tx.houseName }))
-    ),
-  ].map((str) => JSON.parse(str));
-
-  const uniqueUnits = [
-    ...new Set(
-      data.map((tx) => JSON.stringify({ id: tx.unitId, number: tx.unitNumber }))
-    ),
-  ].map((str) => JSON.parse(str));
 
   const filters = [
     {
       key: "houseId" as keyof MeterReading,
       label: "Filter by House",
-      options: [
-        { value: "all", label: "All Houses" },
-        ...uniqueHouses.map((h) => ({ value: h.id, label: h.name })),
-      ],
+      options: [{ value: "all", label: "All Houses" }, ...(table.filterOptions.houseId ?? [])],
     },
     {
       key: "unitId" as keyof MeterReading,
       label: "Filter by Unit",
-      options: [
-        { value: "all", label: "All Units" },
-        ...uniqueUnits.map((u) => ({ value: u.id, label: u.number })),
-      ],
+      options: [{ value: "all", label: "All Units" }, ...(table.filterOptions.unitId ?? [])],
     },
   ];
 
@@ -60,11 +43,26 @@ export function MeterReadingsTable({ data, onDelete, onSubmitEdit }: Props) {
   return (
     <>
       <DataTable
-        data={data}
+        data={table.rows}
+        server={table}
         columns={columns}
         filters={filters}
         onDelete={onDelete}
-        mobileCard={{ title: "unitNumber", subtitle: "houseName" }}
+        renderMobileRow={(reading) => (
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 min-w-10 max-w-20 shrink-0 items-center justify-center rounded-lg bg-primary/10 px-2 text-sm font-bold text-primary">
+              <span className="truncate">{reading.unitNumber}</span>
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[15px] font-semibold">{reading.houseName}</p>
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">{reading.closingFor}</p>
+            </div>
+            <div className="shrink-0 text-right">
+              <p className="text-lg font-bold leading-none tabular-nums">{reading.currentReading}</p>
+              <p className="mt-1 text-[11px] text-muted-foreground tabular-nums">KES {reading.pricePerUnit}/unit</p>
+            </div>
+          </div>
+        )}
         exportFilename="Meter Readings"
         caption="Recent Meter Readings"
         emptyLabel="No Meter Readings Found"

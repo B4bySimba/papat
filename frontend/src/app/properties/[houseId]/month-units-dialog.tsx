@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface UnitRow {
   unitNumber: string;
@@ -70,10 +71,43 @@ export default function MonthUnitsDialog({ houseId, year, month, pastTenants, on
           {error ? (
             <p className="text-sm text-destructive">{error}</p>
           ) : !rows ? (
-            <div className="space-y-2">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="h-16 animate-pulse rounded-xl bg-muted" />
-              ))}
+            <div aria-busy="true">
+              <ul className="space-y-2 md:hidden">
+                {["w-28", "w-24", "w-32", "w-20", "w-28"].map((width, i) => (
+                  <li key={i} className="rounded-xl border bg-card p-3">
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-4 w-8" />
+                      <Skeleton className={`h-3.5 ${width}`} />
+                    </div>
+                    <div className="mt-2 grid grid-cols-3 gap-2">
+                      {[0, 1, 2].map((j) => (
+                        <div key={j} className="space-y-1.5">
+                          <Skeleton className="h-2.5 w-12" />
+                          <Skeleton className="h-4 w-14" />
+                        </div>
+                      ))}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <div className="hidden md:block">
+                <div className="grid h-10 grid-cols-[4rem_1fr_6rem_6rem_6rem] items-center gap-2 border-b px-2">
+                  <Skeleton className="h-3 w-8" />
+                  <Skeleton className="h-3 w-14" />
+                  <Skeleton className="ml-auto h-3 w-14" />
+                  <Skeleton className="ml-auto h-3 w-14" />
+                  <Skeleton className="ml-auto h-3 w-14" />
+                </div>
+                {["w-28", "w-24", "w-32", "w-20", "w-28", "w-24"].map((width, i) => (
+                  <div key={i} className="grid h-[37px] grid-cols-[4rem_1fr_6rem_6rem_6rem] items-center gap-2 border-b px-2">
+                    <Skeleton className="h-4 w-8" />
+                    <Skeleton className={`h-4 ${width}`} />
+                    <Skeleton className="ml-auto h-4 w-14" />
+                    <Skeleton className="ml-auto h-4 w-14" />
+                    <Skeleton className="ml-auto h-4 w-14" />
+                  </div>
+                ))}
+              </div>
             </div>
           ) : (
             <>

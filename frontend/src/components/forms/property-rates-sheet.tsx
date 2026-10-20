@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AMOUNT_FIELDS, EXTRA_FIELDS, Impact, monthLabel, nextMonth, Terms, toTerms } from "@/lib/rates";
+import { SkeletonRateForm } from "@/components/skeleton/form";
 
 interface UnitRow {
   unitId: string;
@@ -153,7 +154,7 @@ export default function PropertyRatesSheet({ houseId, open, onOpenChange }: Prop
         </SheetHeader>
 
         {!terms ? (
-          <p className="text-sm text-muted-foreground">Loading...</p>
+          <SkeletonRateForm amounts={SHARED_AMOUNTS.length} columns={3} unitTable />
         ) : (
           <div className="flex-1 overflow-y-auto space-y-5 pr-2 text-sm">
             <div>

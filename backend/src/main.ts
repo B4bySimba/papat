@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
+import compression from 'compression';
 import { AppModule } from './app.module';
 
 // Fail fast if required environment variables are missing
@@ -23,6 +24,7 @@ if (new Date(2026, 0, 1).getTimezoneOffset() !== -180) {
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.use(compression());
   app.use((req, res, next) => {
     console.log(`Incoming request: ${req.method} ${req.url}`);
     console.log('Heade1rs:', req.headers);

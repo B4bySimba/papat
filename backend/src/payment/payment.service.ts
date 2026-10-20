@@ -6,6 +6,14 @@ import { HashidService } from 'src/common/hashid/hashid.service';
 import { generateCharges, buildLedger, billingDateFor, sortSummaryMonths, MONTH_NAMES, MonthRow, endOfLocalDay } from './ledger.util';
 import { LedgerService } from './ledger.service';
 import {
+  ListQuery,
+  containsPattern,
+  idEquals,
+  limitOffset,
+  orderBy,
+  whereAll,
+} from 'src/common/list-query';
+import {
   addMonths,
   differenceInCalendarMonths,
   endOfMonth,
@@ -30,6 +38,33 @@ export interface TenantLedgerEntry {
   balance: number;
 }
 
+type PaymentListRow = {
+  id: number;
+  houseId: number | null;
+  unitId: number | null;
+  date: Date;
+  dateText: string;
+  amount: number;
+  reference: string;
+  paymentMethod: string;
+  comment: string | null;
+  processed: boolean;
+  manualInput: boolean | null;
+  unitNumber: string | null;
+  houseName: string | null;
+  tenantName: string | null;
+  tenantContact: string | null;
+};
+
+const PAYMENT_SORT: Record<string, Prisma.Sql> = {
+  tenantName: Prisma.sql`lower("tenantName")`,
+  tenantContact: Prisma.sql`lower("tenantContact")`,
+  date: Prisma.sql`date`,
+  reference: Prisma.sql`lower(reference)`,
+  paymentMethod: Prisma.sql`lower("paymentMethod")`,
+  amount: Prisma.sql`amount`,
+  processed: Prisma.sql`processed`,
+};
 
 @Injectable()
 export class PaymentService {
@@ -526,72 +561,88 @@ export class PaymentService {
     return prisma.payment.findMany({});
   }
 
-  async getAll() {
-    const payments = await prisma.payment.findMany({
-      orderBy: { date: 'desc' },
-      select: {
-        unit: {
-          select: {
-            id: true,
-            number: true,
-          },
-        },
-        house: {
-          select: {
-            name: true,
-          },
-        },
-        lease: {
-          select: {
-            tenant: {
-              select: {
-                name: true,
-                contact: true,
-              },
-            },
-          },
-        },
-        houseId: true,
-        date: true,
-        amount: true,
-        reference: true,
-        paymentMethod: true,
-        comment: true,
-        processed: true,
-        manualInput: true,
-        id: true,
-      },
-    });
+  /** With `page`: that page as `{ rows, total }`. Without: every matching row (CSV export). */
+  async getAll(q: ListQuery = {}) {
+    const conditions: Prisma.Sql[] = [];
+    if (q.search) {
+      const s = containsPattern(q.search);
+      conditions.push(Prisma.sql`("tenantName" ILIKE ${s} OR "tenantContact" ILIKE ${s} OR reference ILIKE ${s}
+        OR "paymentMethod" ILIKE ${s} OR comment ILIKE ${s} OR "houseName" ILIKE ${s} OR "unitNumber" ILIKE ${s}
+        OR amount::text ILIKE ${s} OR "dateText" ILIKE ${s})`);
+    }
+    if (q.houseId)
+      conditions.push(
+        idEquals(Prisma.sql`"houseId"`, this.hashidService.decode(q.houseId)),
+      );
+    if (q.unitId)
+      conditions.push(
+        idEquals(Prisma.sql`"unitId"`, this.hashidService.decode(q.unitId)),
+      );
+
+    // Dates are stored as UTC and shown in Nairobi time (main.ts refuses any other zone).
+    const matching = Prisma.sql`SELECT * FROM (
+      SELECT p.id, p."houseId", p."unitId", p.date, p.amount, p.reference, p."paymentMethod", p.comment,
+        p.processed, p."manualInput", u.number AS "unitNumber", h.name AS "houseName",
+        t.name AS "tenantName", t.contact AS "tenantContact",
+        to_char(p.date AT TIME ZONE 'UTC' AT TIME ZONE 'Africa/Nairobi', 'DD/MM/FMYYYY') AS "dateText"
+      FROM payment p
+      LEFT JOIN "Unit" u ON u.id = p."unitId"
+      LEFT JOIN "House" h ON h.id = p."houseId"
+      LEFT JOIN "Lease" l ON l.id = p."leaseId"
+      LEFT JOIN "Tenant" t ON t.id = l."tenantId"
+    ) r ${whereAll(conditions)}`;
+    const count = Prisma.sql`SELECT count(*)::int AS total FROM (${matching}) c`;
+
+    const [payments, counted] = await Promise.all([
+      prisma.$queryRaw<PaymentListRow[]>`${matching}
+        ORDER BY ${orderBy(PAYMENT_SORT, q, Prisma.sql`date DESC, id DESC`)} ${q.page ? limitOffset(q) : Prisma.empty}`,
+      q.page ? prisma.$queryRaw<{ total: number }[]>(count) : null,
+    ]);
 
     const today = endOfLocalDay(new Date());
-    return payments.map((p) => {
-      const formattedDate = p.date
-        ? new Date(p.date).toLocaleDateString('en-GB', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-          })
-        : null;
+    const rows = payments.map((p) => ({
+      unitId: p.unitId !== null ? this.hashidService.encode(p.unitId) : null,
+      unitNumber: p.unitNumber,
+      tenantName: p.tenantName,
+      tenantContact: p.tenantContact,
+      houseId: p.houseId !== null ? this.hashidService.encode(p.houseId) : null,
+      houseName: p.houseName,
+      date: p.dateText,
+      futureDated: p.date > today,
+      amount: p.amount,
+      reference: p.reference,
+      paymentMethod: p.paymentMethod,
+      comment: p.comment,
+      processed: p.processed,
+      manualInput: p.manualInput,
+      id: this.hashidService.encode(p.id),
+    }));
+    return counted ? { rows, total: counted[0].total } : rows;
+  }
 
-      return {
-        unitId: p.unit ? this.hashidService.encode(p.unit.id) : null,
-        unitNumber: p.unit?.number ?? null,
-        tenantName: p.lease?.tenant?.name ?? null,
-        tenantContact: p.lease?.tenant?.contact ?? null,
-        houseId:
-          p.houseId !== null ? this.hashidService.encode(p.houseId) : null,
-        houseName: p.house?.name ?? null,
-        date: formattedDate,
-        futureDated: p.date > today,
-        amount: p.amount,
-        reference: p.reference,
-        paymentMethod: p.paymentMethod,
-        comment: p.comment,
-        processed: p.processed,
-        manualInput: p.manualInput,
-        id: p.id ? this.hashidService.encode(p.id) : null,
-      };
-    });
+  async getAllFilters() {
+    const [houses, units] = await Promise.all([
+      prisma.house.findMany({
+        where: { payment: { some: {} } },
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' },
+      }),
+      prisma.unit.findMany({
+        where: { payment: { some: {} } },
+        select: { id: true, number: true },
+        orderBy: { number: 'asc' },
+      }),
+    ]);
+    return {
+      houseId: houses.map((h) => ({
+        value: this.hashidService.encode(h.id),
+        label: h.name,
+      })),
+      unitId: units.map((u) => ({
+        value: this.hashidService.encode(u.id),
+        label: u.number,
+      })),
+    };
   }
 
   /** Payments typed with a date after today: kept as entered, listed so someone can check the date. */

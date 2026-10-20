@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronRight } from "lucide-react";
+import { SkeletonPastTenants } from "@/components/skeleton/page";
 import { useParams, useRouter } from "next/navigation";
 import {
   Table,
@@ -65,14 +66,7 @@ export default function PastClients({ unitId }: Props) {
 
   if (loading) {
     return (
-      <div>
-        <h1 className="mb-5 text-xl font-bold tracking-tight sm:mb-8 sm:text-2xl">Past Tenants</h1>
-        <div className="space-y-2.5">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-16 animate-pulse rounded-xl bg-muted" />
-          ))}
-        </div>
-      </div>
+      <SkeletonPastTenants />
     );
   }
 

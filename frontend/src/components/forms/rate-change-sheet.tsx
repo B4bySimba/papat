@@ -24,6 +24,7 @@ import {
   Terms,
   toTerms,
 } from "@/lib/rates";
+import { SkeletonRateForm } from "@/components/skeleton/form";
 
 interface LeaseTerms {
   startMonth: string;
@@ -126,7 +127,7 @@ export default function RateChangeSheet({ leaseId, open, onOpenChange, onSaved }
         </SheetHeader>
 
         {!data ? (
-          <p className="text-sm text-muted-foreground">Loading...</p>
+          <SkeletonRateForm amounts={AMOUNT_FIELDS.length} columns={2} />
         ) : (
           <div className="flex-1 overflow-y-auto space-y-5 pr-2 text-sm">
             <div>

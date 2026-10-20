@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { SkeletonPage } from "@/components/skeleton/page";
 import { MeterReadingsTable } from "./MeterReadingsTable";
 import { MeterReading } from "@/lib/meterReadingsSchema";
@@ -7,27 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { AddMeterReadingInline } from "@/components/forms/add-meter-readings-inline";
+import { useServerTable } from "@/hooks/use-server-table";
 
 export default function MeterReadingsPage() {
-  const [transactions, setTransactions] = useState<MeterReading[]>([]);
-  const [loading, setLoading] = useState(true);
+  const table = useServerTable<MeterReading>("/api/meterReading/get");
   const [showAddModal, setShowAddModal] = useState(false);
-
-  useEffect(() => {
-    const fetchTransactions = async () => {
-      try {
-        const response = await fetch(`/api/meterReading/get`);
-        const data = await response.json();
-        setTransactions(data);
-      } catch (error) {
-        console.error("Error fetching transactions:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchTransactions();
-  }, []);
 
   const handleDelete = async (id: string) => {
     try {
@@ -41,21 +25,11 @@ export default function MeterReadingsPage() {
 
       if (!res.ok) throw new Error("Delete failed");
 
-      setTransactions((prev) => prev.filter((tx) => tx.id !== id));
+      table.refresh();
       toast.success("Transaction deleted successfully.");
     } catch (error) {
       console.error("Error deleting transaction:", error);
       toast.error("Failed to delete transaction.");
-    }
-  };
-
-  const refreshTransactions = async () => {
-    try {
-      const response = await fetch(`/api/meterReading/get`);
-      const data = await response.json();
-      setTransactions(data);
-    } catch (error) {
-      console.error("Error fetching transactions:", error);
     }
   };
 
@@ -74,7 +48,7 @@ export default function MeterReadingsPage() {
 
       for (const key of Object.keys(updated) as (keyof MeterReading)[]) {
         const updatedValue = updated[key];
-        const originalValue = transactions.find((t) => t.id === updated.id)?.[
+        const originalValue = table.rows.find((t) => t.id === updated.id)?.[
           key
         ];
         if (updatedValue !== originalValue) {
@@ -103,7 +77,7 @@ export default function MeterReadingsPage() {
       toast.success("Transaction updated successfully");
 
       // Update local state to reflect the edit without refetching
-      setTransactions((prev) =>
+      table.setRows((prev) =>
         prev.map((tx) => {
           if (tx.id !== updated.id) return tx;
 
@@ -122,8 +96,8 @@ export default function MeterReadingsPage() {
     }
   };
 
-  if (loading) {
-    return <SkeletonPage />;
+  if (!table.loaded) {
+    return <SkeletonPage variant="readings" columns={5} />;
   }
 
   return (
@@ -139,7 +113,7 @@ export default function MeterReadingsPage() {
         </Button>
       </div>
       <MeterReadingsTable
-        data={transactions}
+        table={table}
         onDelete={handleDelete}
         onSubmitEdit={handleEditSubmit}
       />
@@ -147,7 +121,7 @@ export default function MeterReadingsPage() {
         <AddMeterReadingInline
           onClose={() => {
             setShowAddModal(false);
-            refreshTransactions();
+            table.refresh();
           }}
         />
       )}

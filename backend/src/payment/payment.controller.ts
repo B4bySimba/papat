@@ -4,6 +4,7 @@ import { Prisma } from 'generated/prisma/client';
 import { HashidPipe } from 'src/common/hashid/hashid.pipe';
 import { HashidService } from 'src/common/hashid/hashid.service';
 import { MONTH_NAMES } from './ledger.util';
+import { ListQuery } from 'src/common/list-query';
 
 @Controller('payment')
 export class PaymentController {
@@ -112,8 +113,13 @@ export class PaymentController {
   }
 
   @Get('getAll')
-  getAll() {
-    return this.paymentService.getAll();
+  getAll(@Query() query: ListQuery) {
+    return this.paymentService.getAll(query);
+  }
+
+  @Get('getAll/filters')
+  getAllFilters() {
+    return this.paymentService.getAllFilters();
   }
 
   @Get('recent')

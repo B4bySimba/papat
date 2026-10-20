@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import type { Transaction } from "@/lib/transactionSchema";
 import { TransactionsTable } from "./TransactionsTable";
 import { SkeletonPage } from "@/components/skeleton/page";
@@ -7,29 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { LogPaymentFloating } from "@/components/forms/log-payment-floating";
+import { useServerTable } from "@/hooks/use-server-table";
 
 export default function TransactionsPage() {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
+  const table = useServerTable<Transaction>("/api/payment/transactions");
   const [showAddForm, setShowAddForm] = useState(false);
 
-
-  useEffect(() => {
-    const fetchTransactions = async () => {
-      try {
-        const response = await fetch("/api/payment/transactions");
-        const data = await response.json();
-        setTransactions(data);
-      } catch (error) {
-        console.error("Error fetching transactions:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchTransactions();
-  }, []);
-  
   const handleDelete = async (id: string) => {
     try {
       console.log("�️ Deleting transaction:", id);
@@ -42,7 +25,7 @@ export default function TransactionsPage() {
 
       if (!res.ok) throw new Error("Delete failed");
 
-      setTransactions((prev) => prev.filter((tx) => tx.id !== id));
+      table.refresh();
       toast.success("Transaction deleted successfully.");
     } catch (error) {
       console.error("Error deleting transaction:", error);
@@ -56,7 +39,7 @@ export default function TransactionsPage() {
 
       for (const key of Object.keys(updated) as (keyof Transaction)[]) {
         const updatedValue = updated[key];
-        const originalValue = transactions.find((t) => t.id === updated.id)?.[
+        const originalValue = table.rows.find((t) => t.id === updated.id)?.[
           key
         ];
         if (updatedValue !== originalValue) {
@@ -86,7 +69,7 @@ export default function TransactionsPage() {
 
       // Update local state to reflect the edit without refetching
       if (changes.date) changes.date = changes.date.split("-").reverse().join("/");
-      setTransactions((prev) =>
+      table.setRows((prev) =>
         prev.map((tx) => (tx.id === updated.id ? { ...tx, ...changes } : tx))
       );
     } catch (err) {
@@ -96,8 +79,8 @@ export default function TransactionsPage() {
   };
     
 
-  if (loading) {
-    return <SkeletonPage />;
+  if (!table.loaded) {
+    return <SkeletonPage variant="statement" columns={7} />;
   }
 
   return (
@@ -113,12 +96,17 @@ export default function TransactionsPage() {
         </Button>
       </div>
       <TransactionsTable
-        data={transactions}
+        table={table}
         onDelete={handleDelete}
         onSubmitEdit={handleEditSubmit}
       />
       {showAddForm && (
-        <LogPaymentFloating onClose={() => setShowAddForm(false)} />
+        <LogPaymentFloating
+          onClose={() => {
+            setShowAddForm(false);
+            table.refresh();
+          }}
+        />
       )}
     </div>
   );

@@ -24,6 +24,7 @@ import {
   User,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface LandlordData {
   id: string;
@@ -431,10 +432,11 @@ export function AddPropertyWizard({ onClose }: { onClose: () => void }) {
               {loadingLandlords ? (
                 <div className="space-y-2">
                   {Array.from({ length: 4 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="h-[70px] rounded-md bg-muted animate-pulse"
-                    />
+                    <div key={i} className="space-y-2 rounded-lg border p-3">
+                      <Skeleton className={i % 2 ? "h-4 w-32" : "h-4 w-44"} />
+                      <Skeleton className="h-3.5 w-28" />
+                      <Skeleton className="h-3.5 w-40" />
+                    </div>
                   ))}
                 </div>
               ) : (

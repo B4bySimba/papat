@@ -2,7 +2,7 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestj
 import { MeterReadingService } from './meter-reading.service';
 import { Prisma } from 'generated/prisma/client';
 import { HashidPipe } from 'src/common/hashid/hashid.pipe';
-
+import { ListQuery } from 'src/common/list-query';
 
 @Controller('meter-reading')
 export class MeterReadingController {
@@ -19,8 +19,13 @@ export class MeterReadingController {
   }
 
   @Get('getAll')
-  getAll() {
-    return this.meterReadingService.getAll();
+  getAll(@Query() query: ListQuery) {
+    return this.meterReadingService.getAll(query);
+  }
+
+  @Get('getAll/filters')
+  getAllFilters() {
+    return this.meterReadingService.getAllFilters();
   }
 
   // Must stay ahead of the ':id' catch-all route below, or NestJS would treat

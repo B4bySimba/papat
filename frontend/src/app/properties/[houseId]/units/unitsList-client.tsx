@@ -64,7 +64,7 @@ const { houseId } = useParams();
   };
 
   if (loading) {
-    return <SkeletonPage />;
+    return <SkeletonPage variant="cards" columns={6} statusTabs />;
   }
 
   return (

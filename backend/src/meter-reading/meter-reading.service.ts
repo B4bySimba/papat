@@ -3,6 +3,34 @@ import { Prisma } from 'generated/prisma/client';
 import { HashidService } from 'src/common/hashid/hashid.service';
 import prisma from 'lib/db';
 import { formatMonth, parseMonth } from 'src/payment/ledger.util';
+import {
+  ListQuery,
+  containsPattern,
+  idEquals,
+  limitOffset,
+  orderBy,
+  whereAll,
+} from 'src/common/list-query';
+
+type MeterReadingListRow = {
+  id: number;
+  houseId: number | null;
+  unitId: number;
+  unitNumber: string;
+  houseName: string | null;
+  readOnText: string;
+  closingFor: string;
+  currentReading: number;
+  pricePerUnit: number | null;
+};
+
+const METER_READING_SORT: Record<string, Prisma.Sql> = {
+  houseName: Prisma.sql`lower("houseName")`,
+  unitNumber: Prisma.sql`lower("unitNumber")`,
+  closingFor: Prisma.sql`"billingPeriod"`,
+  currentReading: Prisma.sql`"currentReading"`,
+  pricePerUnit: Prisma.sql`"pricePerUnit"`,
+};
 
 @Injectable()
 export class MeterReadingService {
@@ -39,68 +67,86 @@ export class MeterReadingService {
     });
   }
 
-  async getAll() {
-    const meterReading = await prisma.meterReading.findMany({
-      select: {
-        house: {
-          select: {
-            name: true,
-            water_bill: true,
-          },
-        },
-        unit: {
-          select: {
-            number: true,
-          },
-        },
-        houseId: true,
-        unitId: true,
-        readOn: true,
-        billingPeriod: true,
-        currentReading: true,
-        id: true,
-        lease: {
-          select: { startDate: true },
-        },
-      },
-    });
+  /** With `page`: that page as `{ rows, total }`. Without: every matching row (CSV export). Newest reading first. */
+  async getAll(q: ListQuery = {}) {
+    const conditions: Prisma.Sql[] = [];
+    if (q.search) {
+      const s = containsPattern(q.search);
+      conditions.push(Prisma.sql`("houseName" ILIKE ${s} OR "unitNumber" ILIKE ${s} OR "readOnText" ILIKE ${s}
+        OR "closingFor" ILIKE ${s} OR "currentReading"::text ILIKE ${s} OR "pricePerUnit"::text ILIKE ${s})`);
+    }
+    if (q.houseId)
+      conditions.push(
+        idEquals(Prisma.sql`"houseId"`, this.hashidservice.decode(q.houseId)),
+      );
+    if (q.unitId)
+      conditions.push(
+        idEquals(Prisma.sql`"unitId"`, this.hashidservice.decode(q.unitId)),
+      );
 
-    return meterReading.map((m) => {
-      const formattedDate = m.readOn
-        ? new Date(m.readOn).toLocaleDateString('en-GB', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-          })
-        : null;
+    // Dates are stored as UTC and shown in Nairobi time (main.ts refuses any other zone).
+    const matching = Prisma.sql`SELECT * FROM (
+      SELECT m.id, m."houseId", m."unitId", m."readOn", m."billingPeriod", m."currentReading",
+        u.number AS "unitNumber", h.name AS "houseName", h.water_bill AS "pricePerUnit",
+        to_char(m."readOn" AT TIME ZONE 'UTC' AT TIME ZONE 'Africa/Nairobi', 'DD/MM/FMYYYY') AS "readOnText",
+        CASE
+          WHEN m."billingPeriod" IS NOT NULL
+            THEN to_char(m."billingPeriod" AT TIME ZONE 'UTC' AT TIME ZONE 'Africa/Nairobi', 'FMMonth FMYYYY')
+          WHEN (m."readOn" AT TIME ZONE 'UTC' AT TIME ZONE 'Africa/Nairobi')::date
+            = (l."startDate" AT TIME ZONE 'UTC' AT TIME ZONE 'Africa/Nairobi')::date
+            THEN 'Opening reading'
+          ELSE 'Unassigned'
+        END AS "closingFor"
+      FROM "MeterReading" m
+      JOIN "Unit" u ON u.id = m."unitId"
+      LEFT JOIN "House" h ON h.id = m."houseId"
+      LEFT JOIN "Lease" l ON l.id = m."leaseId"
+    ) r ${whereAll(conditions)}`;
+    const count = Prisma.sql`SELECT count(*)::int AS total FROM (${matching}) c`;
 
-      const isOpeningReading =
-        !m.billingPeriod &&
-        !!m.lease &&
-        new Date(m.readOn).toDateString() === new Date(m.lease.startDate).toDateString();
+    const [readings, counted] = await Promise.all([
+      prisma.$queryRaw<MeterReadingListRow[]>`${matching}
+        ORDER BY ${orderBy(METER_READING_SORT, q, Prisma.sql`"readOn" DESC, id DESC`)} ${q.page ? limitOffset(q) : Prisma.empty}`,
+      q.page ? prisma.$queryRaw<{ total: number }[]>(count) : null,
+    ]);
 
-      const closingFor = m.billingPeriod
-        ? new Date(m.billingPeriod).toLocaleDateString('en-GB', {
-            month: 'long',
-            year: 'numeric',
-          })
-        : isOpeningReading
-          ? 'Opening reading'
-          : 'Unassigned';
+    const rows = readings.map((m) => ({
+      unitId: this.hashidservice.encode(m.unitId),
+      unitNumber: m.unitNumber,
+      houseId: m.houseId !== null ? this.hashidservice.encode(m.houseId) : null,
+      houseName: m.houseName,
+      readOn: m.readOnText,
+      closingFor: m.closingFor,
+      currentReading: m.currentReading,
+      id: this.hashidservice.encode(m.id),
+      pricePerUnit: m.pricePerUnit,
+    }));
+    return counted ? { rows, total: counted[0].total } : rows;
+  }
 
-      return {
-        unitId: m.unit ? this.hashidservice.encode(m.unitId) : null,
-        unitNumber: m.unit ? m.unit.number : null,
-        houseId:
-          m.houseId !== null ? this.hashidservice.encode(m.houseId) : null,
-        houseName: m.house ? m.house.name : null,
-        readOn: formattedDate,
-        closingFor,
-        currentReading: m.currentReading,
-        id: m.id ? this.hashidservice.encode(m.id) : null,
-        pricePerUnit: m.house ? m.house.water_bill : null,
-      };
-    });
+  async getAllFilters() {
+    const [houses, units] = await Promise.all([
+      prisma.house.findMany({
+        where: { MeterReading: { some: {} } },
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' },
+      }),
+      prisma.unit.findMany({
+        where: { meterReading: { some: {} } },
+        select: { id: true, number: true },
+        orderBy: { number: 'asc' },
+      }),
+    ]);
+    return {
+      houseId: houses.map((h) => ({
+        value: this.hashidservice.encode(h.id),
+        label: h.name,
+      })),
+      unitId: units.map((u) => ({
+        value: this.hashidservice.encode(u.id),
+        label: u.number,
+      })),
+    };
   }
 
   async getUnit(unitId: number) {

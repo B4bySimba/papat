@@ -1,5 +1,5 @@
-import SkeletonTable from "@/components/skeleton/table";
+import { SkeletonTableCard } from "@/components/skeleton/table";
 
 export default function MaintenanceRequests() {
-  return <SkeletonTable />
+  return <SkeletonTableCard />
 }
