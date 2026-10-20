@@ -58,21 +58,62 @@ export default function MonthUnitsDialog({ houseId, year, month, pastTenants, on
 
   return (
     <Dialog open={month !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-3xl">
+      <DialogContent className="flex max-h-[88dvh] flex-col gap-3 p-4 sm:max-h-[85vh] sm:max-w-3xl sm:gap-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle className="pr-8 text-left">
             {month} {year} by unit
           </DialogTitle>
-          <DialogDescription>{summary}</DialogDescription>
+          <DialogDescription className="text-left">{summary}</DialogDescription>
         </DialogHeader>
 
-        <div className="overflow-y-auto">
+        <div className="-mx-1 overflow-y-auto px-1">
           {error ? (
             <p className="text-sm text-destructive">{error}</p>
           ) : !rows ? (
-            <p className="text-sm text-muted-foreground">Loading...</p>
+            <div className="space-y-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-16 animate-pulse rounded-xl bg-muted" />
+              ))}
+            </div>
           ) : (
-            <Table>
+            <>
+            <ul className="space-y-2 md:hidden">
+              {rows.map((r, i) => (
+                <li key={`${r.unitNumber}-${i}`} className="rounded-xl border bg-card p-3">
+                  <div className="flex items-baseline gap-2">
+                    <span className="shrink-0 font-semibold">{r.unitNumber}</span>
+                    <span className="min-w-0 truncate text-sm text-muted-foreground">
+                      {r.tenantName}
+                      {r.movedOut && " (moved out)"}
+                    </span>
+                  </div>
+                  <dl className="mt-2 grid grid-cols-3 gap-2 text-sm">
+                    {(["expected", "collected", "balance"] as const).map((key) => (
+                      <div key={key} className="min-w-0">
+                        <dt className="text-[11px] capitalize text-muted-foreground">{key}</dt>
+                        <dd className={`truncate font-medium tabular-nums ${key === "collected" ? "" : credit(r[key])}`}>
+                          {amount(r[key])}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                </li>
+              ))}
+              <li className="sticky bottom-0 rounded-xl border bg-muted p-3 shadow-sm">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Total</p>
+                <dl className="mt-1 grid grid-cols-3 gap-2 text-sm">
+                  {(["expected", "collected", "balance"] as const).map((key) => (
+                    <div key={key} className="min-w-0">
+                      <dt className="text-[11px] capitalize text-muted-foreground">{key}</dt>
+                      <dd className={`truncate font-semibold tabular-nums ${key === "collected" ? "" : credit(sum(rows, key))}`}>
+                        {amount(sum(rows, key))}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </li>
+            </ul>
+            <Table className="hidden md:table">
               <TableHeader>
                 <TableRow>
                   <TableHead>Unit</TableHead>
@@ -109,6 +150,7 @@ export default function MonthUnitsDialog({ houseId, year, month, pastTenants, on
                 </TableRow>
               </TableFooter>
             </Table>
+            </>
           )}
         </div>
       </DialogContent>

@@ -64,6 +64,7 @@ export function MeterReadingsTable({ data, onDelete, onSubmitEdit }: Props) {
         columns={columns}
         filters={filters}
         onDelete={onDelete}
+        mobileCard={{ title: "unitNumber", subtitle: "houseName" }}
         exportFilename="Meter Readings"
         caption="Recent Meter Readings"
         emptyLabel="No Meter Readings Found"

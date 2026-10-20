@@ -129,7 +129,7 @@ export default function HouseCards({
   };
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+    <div className="grid grid-cols-3 gap-3 sm:gap-4 lg:grid-cols-4">
       {/*  House Info Card → opens Sheet */}
       <Sheet
         open={sheetOpen}
@@ -146,7 +146,7 @@ export default function HouseCards({
         }}
       >
         <SheetTrigger asChild>
-          <div onClick={() => setSheetOpen(true)}>
+          <div onClick={() => setSheetOpen(true)} className="col-span-3 lg:col-span-1">
             <StatCard
               title="House Info"
               value={house.name}
@@ -154,14 +154,14 @@ export default function HouseCards({
               subtext={`LR No: ${house.lr_number ?? "N/A"} | Landlord: ${
                 house.landlord?.name ?? "N/A"
               }`}
-              className="cursor-pointer hover:shadow-lg transition-shadow duration-200"
+              className="cursor-pointer transition hover:-translate-y-0.5 hover:shadow-md active:scale-[0.99]"
             />
           </div>
         </SheetTrigger>
 
         <SheetContent
           side="right"
-          className="w-[400px] sm:w-[500px] flex flex-col p-6"
+          className="w-full sm:w-[500px] flex flex-col p-4 sm:p-6"
         >
           <SheetHeader className="mb-4">
             <SheetTitle className="text-2xl">Property Overview</SheetTitle>
@@ -173,7 +173,7 @@ export default function HouseCards({
           </SheetHeader>
 
           {!editMode && (
-            <div className="flex justify-end gap-2 mb-4">
+            <div className="flex flex-wrap justify-end gap-2 mb-4">
               <Button
                 variant="outline"
                 size="sm"
@@ -322,7 +322,7 @@ export default function HouseCards({
           value={vacantUnits}
           icon={DoorOpen}
           subtext={`${vacantUnits} currently available`}
-          className="cursor-pointer hover:shadow-lg transition"
+          className="cursor-pointer transition hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98]"
         />
       </Link>
 
@@ -335,7 +335,7 @@ export default function HouseCards({
           value={occupiedUnits}
           icon={DoorClosed}
           subtext={`${occupiedUnits} currently occupied`}
-          className="cursor-pointer hover:shadow-lg transition"
+          className="cursor-pointer transition hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98]"
         />
       </Link>
 
@@ -345,7 +345,7 @@ export default function HouseCards({
           value={totalUnits}
           icon={Home}
           subtext={`${totalUnits} total`}
-          className="cursor-pointer hover:shadow-lg transition"
+          className="cursor-pointer transition hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98]"
         />
       </Link>
 

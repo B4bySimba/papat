@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { SidebarProvider } from "./ui/sidebar";
 import AppSidebar from "./Sidebar";
 import Header from "./Header";
+import MobileNav from "./MobileNav";
 import dynamic from "next/dynamic";
 
 // Loaded on open, not on first paint: the invoice generator alone pulls in html2canvas and jsPDF.
@@ -39,23 +40,28 @@ export default function ClientAppLayout({
     return <>{children}</>;
   }
 
+  const actions = {
+    onGenerateReport: () => setShowGenerateReport(true),
+    onGenerateInvoice: () => setShowGenerateInvoice(true),
+    onAddProperty: () => setShowAddProperty(true),
+    onAddUnit: () => setShowAddUnit(true),
+    onAddTenant: () => setShowAddTenant(true),
+    onLogPayment: () => setLogPayment(true),
+    onAddMeterReading: () => setShowAddMeterReading(true),
+  };
+
   return (
     <SidebarProvider>
-      <div className="flex h-screen w-screen overflow-hidden">
-        <AppSidebar
-          onGenerateReport={() => setShowGenerateReport(true)}
-          onGenerateInvoice={() => setShowGenerateInvoice(true)}
-          onAddProperty={() => setShowAddProperty(true)}
-          onAddUnit={() => setShowAddUnit(true)}
-          onAddTenant={() => setShowAddTenant(true)}
-          onLogPayment={() => setLogPayment(true)}
-          onAddMeterReading={() => setShowAddMeterReading(true)}
-        />
-        <div className="flex flex-col flex-1 h-full">
+      <div className="flex h-dvh w-full overflow-hidden">
+        <AppSidebar {...actions} />
+        <div className="flex min-w-0 flex-1 flex-col h-full">
           <Header />
-          <main className="flex-1 overflow-y-auto px-4 py-4">{children}</main>
+          <main className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-3 pt-4 pb-28 sm:px-6 sm:pt-6 md:pb-8">
+            <div className="mx-auto w-full max-w-[1600px]">{children}</div>
+          </main>
         </div>
       </div>
+      <MobileNav {...actions} />
 
       {ShowGenerateReport && (
         <ReportsGenerator onClose={() => setShowGenerateReport(false)} />

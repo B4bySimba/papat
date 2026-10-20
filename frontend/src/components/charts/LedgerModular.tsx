@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button"
 import { ChevronDown, LayoutGrid, Printer, TableIcon } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog"
-import { useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../ui/collapsible"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table"
 import { balanceTone, formatBalance } from "@/lib/utils"
@@ -42,6 +42,11 @@ interface LedgerModalProps {
 export function LedgerModal({ name, data, open, onOpenChange }: LedgerModalProps) {
   const [viewMode, setViewMode] = useState<"card" | "table">("table")
   const printRef = useRef<HTMLDivElement>(null)
+
+  // Eleven columns don't fit a phone, so phones open on the card view.
+  useEffect(() => {
+    if (open && window.matchMedia("(max-width: 767px)").matches) setViewMode("card")
+  }, [open])
 
   const transformedData = useMemo(() => {
     if (!data || data.length === 0) return []
@@ -271,15 +276,15 @@ const handlePrint = async () => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="!max-w-6xl h-[90vh] flex flex-col overflow-y-scroll">
+      <DialogContent className="w-full max-w-full sm:!max-w-6xl h-dvh sm:h-[90vh] rounded-none sm:rounded-lg p-4 sm:p-6 flex flex-col overflow-y-auto">
         <div ref={printRef}>
           <DialogHeader>
-            <DialogTitle>{name}'s Ledger</DialogTitle>
+            <DialogTitle className="pr-8 text-lg sm:text-xl">{name}'s Ledger</DialogTitle>
             <DialogDescription>Complete payment history and financial records</DialogDescription>
           </DialogHeader>
 
           <div className="flex-1 overflow-hidden flex flex-col">
-            <div className="flex justify-between mb-4">
+            <div className="flex justify-between gap-2 my-4">
               <Button
                 variant="outline"
                 onClick={() => setViewMode(viewMode === "card" ? "table" : "card")}
@@ -311,65 +316,65 @@ const handlePrint = async () => {
               ) : viewMode === "card" ? (
                 <div className="space-y-6">
                   {transformedData.map((entry, idx) => (
-                    <Card key={idx} className="rounded-xl shadow-lg overflow-hidden">
-                      <CardHeader className="bg-gray-50 p-4 border-b">
-                        <CardTitle className="text-2xl font-bold text-gray-800">
+                    <Card key={idx} className="gap-0 py-0 rounded-xl shadow-xs overflow-hidden">
+                      <CardHeader className="bg-gray-50 px-4 py-3 border-b sm:px-6 [.border-b]:pb-3">
+                        <CardTitle className="text-base font-bold text-gray-800 sm:text-lg">
                           {entry.month} {entry.year}
                         </CardTitle>
                       </CardHeader>
-                      <CardContent className="p-6 space-y-6">
+                      <CardContent className="p-4 space-y-4 sm:p-6 sm:space-y-5">
                         {/* Financial Summary */}
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-4">
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-3 sm:gap-x-8 sm:gap-y-4">
                           <div>
-                            <p className="text-sm text-muted-foreground">Carry Forward</p>
-                            <p className="font-semibold text-lg">Ksh.{entry.carryForward.toLocaleString()}</p>
+                            <p className="text-xs text-muted-foreground sm:text-sm">Carry Forward</p>
+                            <p className="font-semibold text-base tabular-nums sm:text-lg">Ksh.{entry.carryForward.toLocaleString()}</p>
                           </div>
                           <div>
-                            <p className="text-sm text-muted-foreground">Rent</p>
-                            <p className="font-semibold text-lg">
+                            <p className="text-xs text-muted-foreground sm:text-sm">Rent</p>
+                            <p className="font-semibold text-base tabular-nums sm:text-lg">
                               {entry.rentCharged ? `Ksh.${entry.rentCharged.toLocaleString()}` : "-"}
                             </p>
                           </div>
                           <div>
-                            <p className="text-sm text-muted-foreground">Current Charges</p>
-                            <p className="font-semibold text-lg">Ksh.{entry.currentCharges.toLocaleString()}</p>
+                            <p className="text-xs text-muted-foreground sm:text-sm">Current Charges</p>
+                            <p className="font-semibold text-base tabular-nums sm:text-lg">Ksh.{entry.currentCharges.toLocaleString()}</p>
                           </div>
                           {entry.transfer !== 0 && (
                             <div>
-                              <p className="text-sm text-muted-foreground">{entry.transferNote ?? "Transfer"}</p>
-                              <p className="font-semibold text-lg">Ksh.{entry.transfer.toLocaleString()}</p>
+                              <p className="text-xs text-muted-foreground sm:text-sm">{entry.transferNote ?? "Transfer"}</p>
+                              <p className="font-semibold text-base tabular-nums sm:text-lg">Ksh.{entry.transfer.toLocaleString()}</p>
                             </div>
                           )}
                         </div>
-                        <u>water billage</u>
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-4">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Water billage</p>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-3 sm:gap-x-8 sm:gap-y-4">
                           {entry.usage !== undefined && (
                             <div>
-                              <p className="text-sm text-muted-foreground">Usage</p>
-                              <p className="font-semibold text-lg">{entry.usage} units</p>
+                              <p className="text-xs text-muted-foreground sm:text-sm">Usage</p>
+                              <p className="font-semibold text-base tabular-nums sm:text-lg">{entry.usage} units</p>
                             </div>
                           )}
                           {entry.waterCharge !== undefined && (
                             <div>
-                              <p className="text-sm text-muted-foreground">Water Charge</p>
-                              <p className="font-semibold text-lg">Ksh.{entry.waterCharge.toLocaleString()}</p>
+                              <p className="text-xs text-muted-foreground sm:text-sm">Water Charge</p>
+                              <p className="font-semibold text-base tabular-nums sm:text-lg">Ksh.{entry.waterCharge.toLocaleString()}</p>
                             </div>
                           )}
                         </div>
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-4">
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-3 sm:gap-x-8 sm:gap-y-4">
                           <div>
-                            <p className="text-sm text-muted-foreground">Total Expected</p>
-                            <p className="font-semibold text-lg">Ksh.{entry.expected.toLocaleString()}</p>
+                            <p className="text-xs text-muted-foreground sm:text-sm">Total Expected</p>
+                            <p className="font-semibold text-base tabular-nums sm:text-lg">Ksh.{entry.expected.toLocaleString()}</p>
                           </div>
                           <div>
-                            <p className="text-sm text-muted-foreground">Collected</p>
-                            <p className="font-semibold text-lg text-green-600">
+                            <p className="text-xs text-muted-foreground sm:text-sm">Collected</p>
+                            <p className="font-semibold text-base tabular-nums text-green-600 sm:text-lg">
                               Ksh.{entry.collected.toLocaleString()}
                             </p>
                           </div>
                           <div>
-                            <p className="text-sm text-muted-foreground">Balance</p>
-                            <p className={`font-bold text-xl ${balanceTone(entry.balance)}`}>{formatBalance(entry.balance)}</p>
+                            <p className="text-xs text-muted-foreground sm:text-sm">Balance</p>
+                            <p className={`font-bold text-lg tabular-nums sm:text-xl ${balanceTone(entry.balance)}`}>{formatBalance(entry.balance)}</p>
                           </div>
                         </div>
 
@@ -415,7 +420,7 @@ const handlePrint = async () => {
                   <Table className="border">
                     <TableHeader className="bg-gray-50">
                       <TableRow>
-                        <TableHead className="w-[80px] print:w-[12%]">Month/Year</TableHead>
+                        <TableHead className="sticky left-0 z-10 bg-gray-50 shadow-[1px_0_0_var(--border)] w-[80px] print:w-[12%]">Month/Year</TableHead>
                         <TableHead className="w-[80px] print:w-[10%]">Carry Fwd</TableHead>
                         <TableHead className="w-[80px] print:w-[8%]">Rent</TableHead>
                         <TableHead className="w-[80px] print:w-[10%]">Charges</TableHead>
@@ -431,7 +436,7 @@ const handlePrint = async () => {
                     <TableBody>
                       {transformedData.map((entry, idx) => (
                         <TableRow key={idx} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                          <TableCell className="font-medium py-2 print:py-1">
+                          <TableCell className="sticky left-0 z-10 bg-inherit shadow-[1px_0_0_var(--border)] font-medium py-2 print:py-1">
                             {entry.month} {entry.year}
                           </TableCell>
                           <TableCell>Ksh.{entry.carryForward.toLocaleString()}</TableCell>

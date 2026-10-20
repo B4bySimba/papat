@@ -1,7 +1,7 @@
 "use client";
 
 import DashboardCards from "@/app/dashboard/dashboard-cards";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ViewTabs from "@/components/ViewTabs";
 import { useMemo, useState } from "react";
 import HouseYearSelector from "./house-year-selector";
 import HouseCards from "./house-cards";
@@ -155,28 +155,16 @@ export default function HousePageClient({
         setSheetOpen={setSheetOpen}
       />
 
-      <div className="flex justify-between flex-wrap items-center gap-4 ">
-        <Tabs value={view} onValueChange={(v) => setView(v as ViewType)}>
-          <TabsList className="flex gap-2 p-1 bg-muted rounded-full shadow-[inset_0_2px_4px_0_rgba(0,0,0,0.15)]">
-            <TabsTrigger
-              value="barChart"
-              className="data-[state=active]:bg-primary data-[state=active]:text-white
-                 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300
-                 hover:bg-primary/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              Bar Chart
-            </TabsTrigger>
-            <TabsTrigger
-              value="areaChart"
-              className="data-[state=active]:bg-primary data-[state=active]:text-white
-                 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300
-                 hover:bg-primary/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              Area Chart
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-        <div className="flex flex-wrap items-center gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <ViewTabs
+          value={view}
+          onValueChange={setView}
+          options={[
+            { value: "barChart", label: "Bar Chart" },
+            { value: "areaChart", label: "Area Chart" },
+          ]}
+        />
+        <div className="flex items-start justify-between gap-3 sm:items-center sm:gap-4">
           <PastTenantsToggle checked={pastTenants} />
           <HouseYearSelector year={year} setYear={setYear} years={years} />
         </div>
@@ -196,7 +184,7 @@ export default function HousePageClient({
         <HouseArea data={chartData} year={year} noData={!hasValidData} />
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
         <RecentPayments />
         <MaintenanceRequests />
       </div>

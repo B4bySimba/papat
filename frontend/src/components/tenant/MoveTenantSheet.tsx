@@ -122,7 +122,7 @@ export default function MoveTenantSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-[400px] sm:w-[500px] flex flex-col p-6">
+      <SheetContent side="right" className="w-full sm:w-[500px] flex flex-col p-4 sm:p-6">
         <SheetHeader className="mb-4">
           <SheetTitle className="text-2xl">Move Tenant</SheetTitle>
           <SheetDescription>

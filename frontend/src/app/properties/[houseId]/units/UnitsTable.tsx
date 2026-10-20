@@ -65,7 +65,7 @@ export function UnitsTable({ data, onDelete, refreshData }: Props) {
       label: "Status",
       render: (value: boolean) => (
         <Badge
-          className={`text-white ${value ? "bg-green-600" : "bg-yellow-500"}`}
+          className={`border-0 ring-1 ring-inset ${value ? "bg-emerald-50 text-emerald-700 ring-emerald-600/20" : "bg-amber-50 text-amber-700 ring-amber-600/25"}`}
         >
           {value ? "Occupied" : "Vacant"}
         </Badge>
@@ -120,12 +120,12 @@ export function UnitsTable({ data, onDelete, refreshData }: Props) {
       <Tabs
         value={statusFilter}
         onValueChange={(val) => setStatusFilter(val as any)}
-        className="mb-6"
+        className="mb-4 sm:mb-6"
       >
-        <TabsList className="w-full justify-center gap-2 rounded-xl bg-muted p-1 shadow-sm border border-border">
+        <TabsList className="h-11 w-full justify-center gap-1 rounded-xl bg-muted p-1 sm:w-fit">
           <TabsTrigger
             value="all"
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium transition-all rounded-lg data-[state=active]:bg-primary data-[state=active]:text-white data-[state=inactive]:text-muted-foreground"
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-all rounded-lg sm:px-5 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-sm data-[state=inactive]:text-muted-foreground"
           >
             <Building2 className="w-4 h-4" />
             All
@@ -133,7 +133,7 @@ export function UnitsTable({ data, onDelete, refreshData }: Props) {
 
           <TabsTrigger
             value="occupied"
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium transition-all rounded-lg data-[state=active]:bg-green-600 data-[state=active]:text-white data-[state=inactive]:text-muted-foreground"
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-all rounded-lg sm:px-5 data-[state=active]:bg-green-600 data-[state=active]:text-white data-[state=active]:shadow-sm data-[state=inactive]:text-muted-foreground"
           >
             <DoorClosed className="w-4 h-4" />
             Occupied
@@ -141,7 +141,7 @@ export function UnitsTable({ data, onDelete, refreshData }: Props) {
 
           <TabsTrigger
             value="vacant"
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium transition-all rounded-lg data-[state=active]:bg-yellow-500 data-[state=active]:text-white data-[state=inactive]:text-muted-foreground"
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-all rounded-lg sm:px-5 data-[state=active]:bg-yellow-500 data-[state=active]:text-white data-[state=active]:shadow-sm data-[state=inactive]:text-muted-foreground"
           >
             <DoorOpen className="w-4 h-4" />
             Vacant
@@ -180,8 +180,8 @@ export function UnitsTable({ data, onDelete, refreshData }: Props) {
             <p>
               <strong>Status:</strong>{" "}
               <Badge
-                className={`text-white ${
-                  unit.state ? "bg-green-600" : "bg-yellow-500"
+                className={`border-0 ring-1 ring-inset ${
+                  unit.state ? "bg-emerald-50 text-emerald-700 ring-emerald-600/20" : "bg-amber-50 text-amber-700 ring-amber-600/25"
                 }`}
               >
                 {unit.state ? "Occupied" : "Vacant"}
@@ -192,6 +192,7 @@ export function UnitsTable({ data, onDelete, refreshData }: Props) {
             </p>
           </div>
         )}
+        mobileCard={{ title: "unitNumber", subtitle: "tenantName", value: "rent", details: false }}
         searchPlaceholder="Search unit..."
         exportFilename="units"
         caption="Showing units"

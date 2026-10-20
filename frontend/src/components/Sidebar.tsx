@@ -100,20 +100,24 @@ export default function AppSidebar({
   ...props
 }: AppSidebarProps) {
   const pathname = usePathname();
-  const sidebar = useSidebar();
-  const { isMobile } = useSidebar();
+  const { isMobile, setOpenMobile } = useSidebar();
+  const closeOnMobile = () => isMobile && setOpenMobile(false);
+  const run = (fn: () => void) => () => {
+    closeOnMobile();
+    fn();
+  };
 
   const documents = [
-    { label: "Reports", onClick: onGenerateReport, icon: Clipboard },
-    { label: "Invoices", onClick: onGenerateInvoice, icon: Receipt },
+    { label: "Reports", onClick: run(onGenerateReport), icon: Clipboard },
+    { label: "Invoices", onClick: run(onGenerateInvoice), icon: Receipt },
   ];
 
   const actions = [
-    { label: "Add Property", onClick: onAddProperty, icon: HousePlus },
-    { label: "Add Unit", onClick: onAddUnit, icon: PackagePlus },
-    { label: "Add Tenant", onClick: onAddTenant, icon: UserRoundPlus },
-    { label: "Log Payment", onClick: onLogPayment, icon: HandCoins },
-    { label: "Add Meter Reading", onClick: onAddMeterReading, icon: Droplets },
+    { label: "Add Property", onClick: run(onAddProperty), icon: HousePlus },
+    { label: "Add Unit", onClick: run(onAddUnit), icon: PackagePlus },
+    { label: "Add Tenant", onClick: run(onAddTenant), icon: UserRoundPlus },
+    { label: "Log Payment", onClick: run(onLogPayment), icon: HandCoins },
+    { label: "Add Meter Reading", onClick: run(onAddMeterReading), icon: Droplets },
   ];
 
   const others = [
@@ -122,8 +126,16 @@ export default function AppSidebar({
 
   return (
     <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader>
-        {!sidebar && <h2 className="text-xl font-bold pl-4 py-2">RentalSys</h2>}
+      <SidebarHeader className="pt-[max(0.5rem,env(safe-area-inset-top))]">
+        <div className="flex items-center gap-2.5 px-1 py-1.5 group-data-[collapsible=icon]:px-0">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm shadow-primary/30">
+            <Building className="size-4" />
+          </span>
+          <div className="grid leading-tight group-data-[collapsible=icon]:hidden">
+            <span className="truncate text-base font-bold tracking-tight">RentalSys</span>
+            <span className="truncate text-xs text-muted-foreground">Papat Properties</span>
+          </div>
+        </div>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
@@ -145,7 +157,7 @@ export default function AppSidebar({
                           : "border-transparent hover:bg-primary/5 hover:border-primary/20"
                       )}
                     >
-                      <Link href={href}>
+                      <Link href={href} onClick={closeOnMobile}>
                         <Icon className="mr-2 h-4 w-4" />
                         {label}
                       </Link>
@@ -220,7 +232,7 @@ export default function AppSidebar({
                           : "border-transparent hover:bg-primary/5 hover:border-primary/20"
                       )}
                     >
-                      <Link href={href}>
+                      <Link href={href} onClick={closeOnMobile}>
                         <Icon className="mr-2 h-4 w-4" />
                         {label}
                       </Link>

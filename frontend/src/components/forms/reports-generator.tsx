@@ -456,8 +456,8 @@ export function ReportsGenerator({ onClose }: { onClose: () => void }) {
     if (!reportView) return null;
 
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <Card className="w-full max-w-6xl mx-4 max-h-[95vh] overflow-hidden">
+      <div className="fixed inset-0 bg-black/50 flex items-end justify-center z-50 animate-in fade-in-0 duration-200 sm:items-center">
+        <Card className="w-full max-w-6xl mx-0 sm:mx-4 rounded-b-none sm:rounded-xl gap-4 sm:gap-6 animate-in slide-in-from-bottom-10 duration-300 sm:slide-in-from-bottom-0 sm:zoom-in-95 max-h-[96dvh] sm:max-h-[95vh] overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle>Report Preview</CardTitle>
             <Button
@@ -468,7 +468,7 @@ export function ReportsGenerator({ onClose }: { onClose: () => void }) {
               <X className="h-4 w-4" />
             </Button>
           </CardHeader>
-          <CardContent className="overflow-y-auto max-h-[calc(95vh-80px)]">
+          <CardContent className="overflow-y-auto px-3 sm:px-6 max-h-[calc(96dvh-80px)] sm:max-h-[calc(95vh-80px)]">
             {reportView.type === "monthly-report" ? (
               <PropertyMonthly
                 data={reportView.data}
@@ -502,8 +502,8 @@ export function ReportsGenerator({ onClose }: { onClose: () => void }) {
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <Card className="w-full max-w-4xl mx-4 max-h-[90vh] overflow-hidden">
+      <div className="fixed inset-0 bg-black/50 flex items-end justify-center z-50 animate-in fade-in-0 duration-200 sm:items-center">
+        <Card className="w-full max-w-4xl mx-0 sm:mx-4 rounded-b-none sm:rounded-xl gap-4 sm:gap-6 animate-in slide-in-from-bottom-10 duration-300 sm:slide-in-from-bottom-0 sm:zoom-in-95 max-h-[94dvh] sm:max-h-[90vh] overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <div>
               <CardTitle className="flex items-center gap-2">
@@ -518,7 +518,7 @@ export function ReportsGenerator({ onClose }: { onClose: () => void }) {
               <X className="h-4 w-4" />
             </Button>
           </CardHeader>
-          <CardContent className="overflow-y-auto max-h-[calc(90vh-120px)]">
+          <CardContent className="overflow-y-auto max-h-[calc(94dvh-110px)] sm:max-h-[calc(90vh-120px)]">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Report Type Selection */}
               <div className="lg:col-span-2 space-y-4">

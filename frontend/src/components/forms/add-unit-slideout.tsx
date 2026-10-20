@@ -133,8 +133,8 @@ export function AddUnitSlideout({
   }, []);
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50">
-      <div className="fixed right-0 top-0 h-full w-full max-w-md bg-background shadow-xl">
+    <div className="fixed inset-0 bg-black/50 z-50 animate-in fade-in-0 duration-200">
+      <div className="fixed right-0 top-0 h-full w-full max-w-md bg-background shadow-xl animate-in slide-in-from-right duration-300">
         <div className="flex items-center justify-between p-6 border-b">
           <div className="flex items-center gap-2">
             <SquarePlus className="h-5 w-5" />
@@ -147,7 +147,7 @@ export function AddUnitSlideout({
 
         <form
           onSubmit={handleSubmit}
-          className="p-6 space-y-4 overflow-y-auto h-[calc(100vh-140px)]"
+          className="p-4 space-y-4 overflow-y-auto h-[calc(100dvh-140px)] sm:p-6"
         >
           <div>
             <Label>
@@ -309,7 +309,7 @@ export function AddUnitSlideout({
           </div>
         </form>
 
-        <div className="absolute bottom-0 left-0 right-0 p-6 border-t bg-background">
+        <div className="absolute bottom-0 left-0 right-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t bg-background sm:p-6">
           <div className="flex gap-2">
             <Button
               variant="outline"

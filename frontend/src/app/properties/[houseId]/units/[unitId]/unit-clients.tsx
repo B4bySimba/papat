@@ -1,7 +1,7 @@
 "use client";
 
 import DashboardCards from "@/app/dashboard/dashboard-cards";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ViewTabs from "@/components/ViewTabs";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Edit, Trash2, User, View } from "lucide-react";
@@ -82,7 +82,7 @@ export default function UnitPageClient({
 
   if (isNotFound) {
     return (
-      <div className="flex flex-col items-center justify-center text-center py-24 px-6">
+      <div className="flex flex-col items-center justify-center text-center py-12 px-2 sm:py-24 sm:px-6">
         <Trash2 className="w-10 h-10 text-destructive mb-3" />
         <h2 className="text-xl font-semibold text-destructive mb-1">
           Unit not found.
@@ -93,7 +93,7 @@ export default function UnitPageClient({
         <div className="justify-center pt-8">
           <Button
             variant="default"
-            className="text-sm min-w-[150px] cursor-pointer"
+            className="h-10 text-sm min-w-[150px] cursor-pointer"
             onClick={() => {
               router.push(`/properties/${houseId}/units`);
             }}
@@ -107,18 +107,20 @@ export default function UnitPageClient({
 
   if (isVacant) {
     return (
-      <div className="flex flex-col items-center justify-center text-center py-24 px-6">
-        <User className="w-12 h-12 text-muted-foreground mb-4" />
+      <div className="flex flex-col items-center justify-center text-center py-12 px-2 sm:py-24 sm:px-6">
+        <span className="mb-4 flex size-16 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <User className="w-8 h-8" />
+        </span>
         <CardTitle className="text-xl font-semibold text-muted-foreground mb-2">
           This unit is currently vacant.
         </CardTitle>
         <p className="text-base text-muted-foreground">
           There is no active tenant in this unit at the moment.
         </p>
-        <div className="flex flex-wrap justify-center gap-4 pb-8">
+        <div className="mt-6 grid w-full max-w-sm grid-cols-1 gap-2.5 pb-8 sm:flex sm:max-w-none sm:flex-wrap sm:justify-center sm:gap-4">
           <Button
             variant="default"
-            className="text-sm min-w-[150px] cursor-pointer"
+            className="h-10 text-sm min-w-[150px] cursor-pointer"
             onClick={() =>
               setShowModal({
                 show: true,
@@ -147,7 +149,7 @@ export default function UnitPageClient({
 
           <Button
             variant="outline"
-            className="text-sm min-w-[150px] bg-transparent cursor-pointer"
+            className="h-10 text-sm min-w-[150px] bg-background cursor-pointer"
             onClick={() => {
               router.push(`/properties/${houseId}/units/${unitId}/past`);
             }}
@@ -156,7 +158,7 @@ export default function UnitPageClient({
           </Button>
           <Button
             variant="outline"
-            className="text-sm min-w-[150px] bg-transparent cursor-pointer"
+            className="h-10 text-sm min-w-[150px] bg-background cursor-pointer"
             onClick={() => {
               router.push(`/properties/${houseId}/units`);
             }}
@@ -165,7 +167,7 @@ export default function UnitPageClient({
           </Button>
           <Button
             variant="outline"
-            className="text-sm min-w-[150px] bg-transparent cursor-pointer"
+            className="h-10 text-sm min-w-[150px] bg-background cursor-pointer"
             onClick={() => {
               fetch(`/api/units/one/${unitId}`)
                 .then((res) => {
@@ -229,7 +231,7 @@ export default function UnitPageClient({
             <AlertDialogTrigger asChild>
               <Button
                 variant="destructive"
-                className="text-sm min-w-[150px] cursor-pointer"
+                className="h-10 text-sm min-w-[150px] cursor-pointer"
               >
                 Delete Unit
               </Button>
@@ -297,20 +299,16 @@ export default function UnitPageClient({
         ledgerData={ledgerData}
       />
 
-      <div className="flex justify-between flex-wrap items-center gap-4">
-        <Tabs value={view} onValueChange={(v) => setView(v as ViewType)}>
-          <TabsList className="flex gap-2 p-1 bg-muted rounded-full shadow-[inset_0_2px_4px_0_rgba(0,0,0,0.15)]">
-            <TabsTrigger value="barChart" className="...">
-              Bar Chart
-            </TabsTrigger>
-            <TabsTrigger value="areaChart" className="...">
-              Area Chart
-            </TabsTrigger>
-            <TabsTrigger value="ledger" className="...">
-              Ledger
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <ViewTabs
+          value={view}
+          onValueChange={setView}
+          options={[
+            { value: "barChart", label: "Bar Chart", shortLabel: "Bar" },
+            { value: "areaChart", label: "Area Chart", shortLabel: "Area" },
+            { value: "ledger", label: "Ledger" },
+          ]}
+        />
 
         <UnitYearSelector year={year} setYear={setYear} years={years} />
       </div>
@@ -323,9 +321,9 @@ export default function UnitPageClient({
       )}
       {view === "ledger" && (
         <>
-          <div className="flex justify-end mb-4 no-print sticky top-0 bg-white z-50 border-b p-1">
+          <div className="flex justify-end no-print">
             <Button
-              className="flex items-center gap-2"
+              className="flex w-full items-center gap-2 sm:w-auto"
               onClick={() => setLedgerOpen(true)}
             >
               <View className="h-4 w-4" />
@@ -335,7 +333,7 @@ export default function UnitPageClient({
           <UnitLedger data={chartData} year={year} noData={!hasValidData} />
         </>
       )}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
         <RecentPayments leaseCode={leaseCode} />
         <MaintenanceRequests />
       </div>

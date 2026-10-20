@@ -775,8 +775,8 @@ export function InvoiceGenerator({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* Preview Modal */}
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 no-print">
-          <Card className="w-full max-w-6xl mx-4 max-h-[90vh] overflow-hidden">
+        <div className="fixed inset-0 bg-black/50 flex items-end justify-center z-50 animate-in fade-in-0 duration-200 sm:items-center no-print">
+          <Card className="w-full max-w-6xl mx-0 sm:mx-4 rounded-b-none sm:rounded-xl gap-4 sm:gap-6 animate-in slide-in-from-bottom-10 duration-300 sm:slide-in-from-bottom-0 sm:zoom-in-95 max-h-[94dvh] sm:max-h-[90vh] overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <div>
                 <CardTitle className="flex items-center gap-2">
@@ -808,7 +808,7 @@ export function InvoiceGenerator({ onClose }: { onClose: () => void }) {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="flex flex-col gap-4 max-h-[calc(90vh-120px)]">
+            <CardContent className="flex flex-col gap-4 overflow-y-auto px-3 sm:px-6 max-h-[calc(94dvh-110px)] sm:max-h-[calc(90vh-120px)]">
               {/* Multi-invoice scroller (horizontal with snap) */}
               <div className="relative">
                 {generatedInvoices.length > 1 && (
@@ -897,8 +897,8 @@ export function InvoiceGenerator({ onClose }: { onClose: () => void }) {
 
   // Editor modal
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 no-print">
-      <Card className="w-full max-w-5xl mx-4 max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black/50 flex items-end justify-center z-50 animate-in fade-in-0 duration-200 sm:items-center no-print">
+      <Card className="w-full max-w-5xl mx-0 sm:mx-4 rounded-b-none sm:rounded-xl gap-4 sm:gap-6 animate-in slide-in-from-bottom-10 duration-300 sm:slide-in-from-bottom-0 sm:zoom-in-95 max-h-[94dvh] sm:max-h-[90vh] overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <div>
             <CardTitle className="flex items-center gap-2">
@@ -918,11 +918,11 @@ export function InvoiceGenerator({ onClose }: { onClose: () => void }) {
             <X className="h-4 w-4" />
           </Button>
         </CardHeader>
-        <CardContent className="overflow-y-auto max-h-[calc(90vh-120px)]">
+        <CardContent className="overflow-y-auto max-h-[calc(94dvh-110px)] sm:max-h-[calc(90vh-120px)]">
           {/* Mode */}
           <div className="mb-6">
             <Label className="text-sm font-medium">Invoice Mode</Label>
-            <div className="grid grid-cols-2 gap-4 mt-2">
+            <div className="grid grid-cols-1 gap-3 mt-2 sm:grid-cols-2 sm:gap-4">
               <Card
                 className={`cursor-pointer transition-all ${
                   invoiceMode === "bulk"
@@ -1009,7 +1009,7 @@ export function InvoiceGenerator({ onClose }: { onClose: () => void }) {
                             variant="outline"
                             role="combobox"
                             aria-expanded={open}
-                            className="w-[300px] justify-between"
+                            className="w-full justify-between sm:w-[300px]"
                           >
                             {selectedProperty
                               ? selectedProperty.name
@@ -1017,7 +1017,7 @@ export function InvoiceGenerator({ onClose }: { onClose: () => void }) {
                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-[300px] p-0">
+                        <PopoverContent className="w-(--radix-popover-trigger-width) p-0 sm:w-[300px]">
                           <Command>
                             <CommandInput placeholder="Search property..." />
                             <CommandEmpty>No property found.</CommandEmpty>
@@ -1259,7 +1259,7 @@ export function InvoiceGenerator({ onClose }: { onClose: () => void }) {
                     {invoiceData.items.map((item) => (
                       <div
                         key={item.id}
-                        className="grid grid-cols-12 gap-2 items-end p-3 bg-muted/30 rounded-lg"
+                        className="grid grid-cols-6 gap-2 items-end p-3 bg-muted/30 rounded-lg sm:grid-cols-12"
                       >
                         <div className="col-span-5">
                           <Label className="text-xs">Description</Label>
@@ -1276,7 +1276,7 @@ export function InvoiceGenerator({ onClose }: { onClose: () => void }) {
                             className="h-8"
                           />
                         </div>
-                        <div className="col-span-2">
+                        <div className="col-span-2 max-sm:order-3">
                           <Label className="text-xs">Quantity</Label>
                           <Input
                             type="number"
@@ -1291,7 +1291,7 @@ export function InvoiceGenerator({ onClose }: { onClose: () => void }) {
                             className="h-8"
                           />
                         </div>
-                        <div className="col-span-2">
+                        <div className="col-span-2 max-sm:order-3">
                           <Label className="text-xs">Rate</Label>
                           <Input
                             type="number"
@@ -1306,7 +1306,7 @@ export function InvoiceGenerator({ onClose }: { onClose: () => void }) {
                             className="h-8"
                           />
                         </div>
-                        <div className="col-span-2">
+                        <div className="col-span-2 max-sm:order-3">
                           <Label className="text-xs">Amount</Label>
                           <Input
                             value={`KSH ${item.amount.toLocaleString()}`}
@@ -1314,7 +1314,7 @@ export function InvoiceGenerator({ onClose }: { onClose: () => void }) {
                             className="h-8 bg-muted"
                           />
                         </div>
-                        <div className="col-span-1">
+                        <div className="col-span-1 flex justify-end max-sm:order-2 sm:block">
                           <Button
                             variant="ghost"
                             size="icon"

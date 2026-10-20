@@ -85,31 +85,33 @@ export function DataCardTable<TData>({
     },
   });
 
+  const rows = table.getRowModel().rows;
+
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <CardTitle className="text-xl">{title}</CardTitle>
+    <Card className="@container/mini gap-4 overflow-hidden py-5 sm:gap-6 sm:py-6">
+      <CardHeader className="px-4 sm:px-6">
+        <div className="flex flex-col gap-3 @lg/mini:flex-row @lg/mini:items-start @lg/mini:justify-between">
+          <div className="min-w-0 space-y-1">
+            <CardTitle className="text-lg sm:text-xl">{title}</CardTitle>
             {description && <CardDescription>{description}</CardDescription>}
           </div>
-          <div className="flex gap-2">
+          <div className="flex shrink-0 gap-2">
             {buttonLabel && onButtonClick && (
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={onButtonClick}
-                className=" bg-purple-600 hover:bg-purple-700 text-white border-purple-600 hover:border-purple-700 cursor-pointer"
+                className="flex-1 @lg/mini:flex-none bg-purple-600 hover:bg-purple-700 text-white border-purple-600 hover:border-purple-700 cursor-pointer"
               >
                 {buttonLabel}
               </Button>
             )}
             {viewAllHref && (
-              <Link href={viewAllHref}>
+              <Link href={viewAllHref} className="flex-1 @lg/mini:flex-none">
                 <Button
                   variant="outline"
                   size="sm"
-                  className=" bg-purple-600 hover:bg-purple-700 text-white border-purple-600 hover:border-purple-700 cursor-pointer"
+                  className="w-full border-purple-200 text-purple-700 hover:bg-purple-50 hover:text-purple-800 cursor-pointer"
                 >
                   {viewAllLabel ?? "View All"}
                 </Button>
@@ -119,71 +121,104 @@ export function DataCardTable<TData>({
         </div>
       </CardHeader>
 
-      <CardContent className="flex flex-col gap-4">
+      <CardContent className="flex flex-col gap-4 px-4 sm:px-6">
         {loading ? (
           <SkeletonTable />
         ) : (
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <TableRow key={headerGroup.id}>
-                    {headerGroup.headers.map((header) => (
-                      <TableHead
-                        key={header.id}
-                        className="data-[name=actions]:w-10 data-[name=amount]:w-24 data-[name=select]:w-10 data-[name=status]:w-24 [&:has([role=checkbox])]:pl-3"
-                        data-name={header.id}
-                      >
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext()
-                            )}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                ))}
-              </TableHeader>
-
-              <TableBody>
-                {table.getRowModel().rows.length ? (
-                  table.getRowModel().rows.map((row) => (
-                    <TableRow
-                      key={row.id}
-                      data-state={row.getIsSelected() && "selected"}
-                    >
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell
+          <>
+            {/* Phones: compact list */}
+            <ul className="divide-y rounded-xl border @md/mini:hidden">
+              {rows.length ? (
+                rows.map((row) => {
+                  const cells = row.getVisibleCells();
+                  return (
+                    <li key={row.id} className="flex items-center gap-3 px-3 py-3 text-sm">
+                      {cells.map((cell, i) => (
+                        <div
                           key={cell.id}
-                          className="data-[name=actions]:w-10 data-[name=amount]:w-24 data-[name=select]:w-10 data-[name=status]:w-24 [&:has([role=checkbox])]:pl-3"
-                          data-name={cell.column.id}
+                          className={
+                            i === 0
+                              ? "shrink-0"
+                              : i === cells.length - 1
+                              ? "shrink-0 tabular-nums"
+                              : "min-w-0 flex-1 truncate font-medium"
+                          }
                         >
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext()
-                          )}
-                        </TableCell>
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </div>
+                      ))}
+                    </li>
+                  );
+                })
+              ) : (
+                <li className="py-10 text-center text-sm text-muted-foreground">
+                  {emptyLabel ?? "No results."}
+                </li>
+              )}
+            </ul>
+
+            <div className="hidden overflow-hidden rounded-xl border @md/mini:block">
+              <Table>
+                <TableHeader className="bg-muted/50">
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <TableRow key={headerGroup.id} className="hover:bg-transparent">
+                      {headerGroup.headers.map((header) => (
+                        <TableHead
+                          key={header.id}
+                          className="px-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground data-[name=actions]:w-10 data-[name=amount]:w-24 data-[name=select]:w-10 data-[name=status]:w-24 [&:has([role=checkbox])]:pl-3"
+                          data-name={header.id}
+                        >
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(
+                                header.column.columnDef.header,
+                                header.getContext()
+                              )}
+                        </TableHead>
                       ))}
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      colSpan={columns.length}
-                      className="h-24 text-center text-muted-foreground"
-                    >
-                      {emptyLabel ?? "No results."}
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                  ))}
+                </TableHeader>
+
+                <TableBody>
+                  {rows.length ? (
+                    rows.map((row) => (
+                      <TableRow
+                        key={row.id}
+                        data-state={row.getIsSelected() && "selected"}
+                      >
+                        {row.getVisibleCells().map((cell) => (
+                          <TableCell
+                            key={cell.id}
+                            className="px-3 py-2.5 data-[name=actions]:w-10 data-[name=amount]:w-24 data-[name=select]:w-10 data-[name=status]:w-24 [&:has([role=checkbox])]:pl-3"
+                            data-name={cell.column.id}
+                          >
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
+                            )}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        colSpan={columns.length}
+                        className="h-24 text-center text-muted-foreground"
+                      >
+                        {emptyLabel ?? "No results."}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         )}
 
         <div className="flex items-center justify-end gap-2">
-          <div className="text-muted-foreground flex-1 text-sm">
+          <div className="text-muted-foreground hidden flex-1 text-sm @md/mini:block">
             {table.getFilteredSelectedRowModel().rows.length} of{" "}
             {table.getFilteredRowModel().rows.length} row(s) selected.
           </div>

@@ -204,7 +204,7 @@ export default function UnitCards({
   }, [tenant?.leaseCode]);
   
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
       {/* � Tenant Info: opens Sheet */}
       <Sheet
         open={tenantSheetOpen}
@@ -221,20 +221,20 @@ export default function UnitCards({
         }}
       >
         <SheetTrigger asChild>
-          <div onClick={() => setTenantSheetOpen(true)}>
+          <div onClick={() => setTenantSheetOpen(true)} className="col-span-2 sm:col-span-1">
             <StatCard
               title="Tenant Info"
               value={tenant?.tenant.name}
               icon={PersonStanding}
               subtext={`Contact: ${tenant.tenant.contact ?? "N/A"}`}
-              className="cursor-pointer hover:shadow-lg transition-shadow duration-200"
+              className="cursor-pointer transition hover:-translate-y-0.5 hover:shadow-md active:scale-[0.99]"
             />
           </div>
         </SheetTrigger>
 
         <SheetContent
           side="right"
-          className="w-[400px] sm:w-[500px] flex flex-col p-6"
+          className="w-full sm:w-[500px] flex flex-col p-4 sm:p-6"
         >
           <SheetHeader className="mb-4">
             <SheetTitle className="text-2xl">Tenant Overview</SheetTitle>
@@ -386,21 +386,21 @@ export default function UnitCards({
             <StatCard
               title="Bills & Charges"
               value={
-                <span className="flex items-center gap-2">
+                <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                   Rent <span className="text-muted-foreground">:</span> KES{" "}
                   {tenant.rentRate.toLocaleString()}
                 </span>
               }
               icon={Receipt}
               subtext="Click to view breakdown"
-              className="cursor-pointer hover:shadow-lg transition-shadow duration-200"
+              className="cursor-pointer transition hover:-translate-y-0.5 hover:shadow-md active:scale-[0.99]"
             />
           </div>
         </SheetTrigger>
 
         <SheetContent
           side="right"
-          className="w-full sm:w-[500px] flex flex-col p-6 border-l border-border bg-background shadow-xl"
+          className="w-full sm:w-[500px] flex flex-col p-4 sm:p-6 border-l border-border bg-background shadow-xl"
         >
           <SheetHeader className="mb-6">
             <SheetTitle className="text-2xl font-bold tracking-tight text-foreground">
@@ -606,14 +606,14 @@ export default function UnitCards({
               value="Manage"
               icon={MoreHorizontal}
               subtext="Click to view actions"
-              className="cursor-pointer hover:shadow-lg transition-shadow duration-200"
+              className="cursor-pointer transition hover:-translate-y-0.5 hover:shadow-md active:scale-[0.99]"
             />
           </div>
         </SheetTrigger>
 
         <SheetContent
           side="right"
-          className="w-[400px] sm:w-[500px] flex flex-col p-6"
+          className="w-full sm:w-[500px] flex flex-col p-4 sm:p-6"
         >
           <SheetHeader className="mb-4">
             <SheetTitle className="text-2xl">Tenant Actions</SheetTitle>
@@ -787,7 +787,7 @@ export default function UnitCards({
       <Sheet open={terminateSheetOpen} onOpenChange={setTerminateSheetOpen}>
         <SheetContent
           side="right"
-          className="w-[400px] sm:w-[500px] p-6 flex flex-col"
+          className="w-full sm:w-[500px] p-4 sm:p-6 flex flex-col"
         >
           <SheetHeader className="mb-4">
             <SheetTitle>Terminate Lease</SheetTitle>

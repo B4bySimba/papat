@@ -94,6 +94,7 @@ export function TransactionsTable({ data, onDelete, onSubmitEdit }: Props) {
         onDelete={onDelete}
         exportFilename="transactions"
         caption="Recent transactions"
+        mobileCard={{ title: "tenantName", subtitle: "date", value: "amount" }}
         emptyLabel="No Transactions Found"
         onRowClick={(tx) => {
           setSelected(tx);

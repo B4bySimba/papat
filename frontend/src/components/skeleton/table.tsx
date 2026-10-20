@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function SkeletonTable() {
   return (
-    <Card className="p-4 bg-muted/50 shadow-md border border-gray-300">
+    <Card className="p-4 bg-muted/40 shadow-xs border">
       <div className="space-y-4">
         {/* Table header */}
         <div className="grid grid-cols-4 gap-4">

@@ -2,6 +2,7 @@
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ChevronRight } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Table,
@@ -64,19 +65,23 @@ export default function PastClients({ unitId }: Props) {
 
   if (loading) {
     return (
-      <div className="p-6">
-        <h1 className="text-2xl font-bold mb-4">Past Tenants</h1>
-        <div className="text-center py-4">Loading past tenants...</div>
+      <div>
+        <h1 className="mb-5 text-xl font-bold tracking-tight sm:mb-8 sm:text-2xl">Past Tenants</h1>
+        <div className="space-y-2.5">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-16 animate-pulse rounded-xl bg-muted" />
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Past Tenants</h1>
+    <div>
+      <h1 className="mb-5 text-xl font-bold tracking-tight sm:mb-8 sm:text-2xl">Past Tenants</h1>
 
       {pastTenants.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
+        <div className="rounded-xl border border-dashed bg-card px-4 py-12 text-center text-sm text-muted-foreground">
           No past tenants found for this unit.
           <p className="mt-4">
             <Button
@@ -91,13 +96,33 @@ export default function PastClients({ unitId }: Props) {
           </p>
         </div>
       ) : (
-        <div className="border rounded-lg">
+        <>
+        <ul className="space-y-2.5 md:hidden">
+          {pastTenants.map((tenant, index) => (
+            <li key={index}>
+              <button
+                type="button"
+                onClick={() => handleRowClick(tenant.leaseId)}
+                className="flex w-full items-center gap-3 rounded-xl border bg-card p-4 text-left shadow-xs transition-colors active:bg-muted/60"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-semibold">{tenant.tenantName}</p>
+                  <p className="mt-0.5 text-sm text-muted-foreground tabular-nums">
+                    {tenant.moveInDate} to {tenant.moveOutDate}
+                  </p>
+                </div>
+                <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+              </button>
+            </li>
+          ))}
+        </ul>
+        <div className="hidden overflow-hidden rounded-xl border bg-card shadow-xs md:block">
           <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="font-semibold">Tenant Name</TableHead>
-                <TableHead className="font-semibold">Move-in Date</TableHead>
-                <TableHead className="font-semibold">Move-out Date</TableHead>
+            <TableHeader className="bg-muted/50">
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="h-11 px-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tenant Name</TableHead>
+                <TableHead className="h-11 px-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Move-in Date</TableHead>
+                <TableHead className="h-11 px-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Move-out Date</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -107,16 +132,17 @@ export default function PastClients({ unitId }: Props) {
                   className="cursor-pointer hover:bg-gray-50 transition-colors"
                   onClick={() => handleRowClick(tenant.leaseId)}
                 >
-                  <TableCell className="font-medium">
+                  <TableCell className="px-4 py-3 font-medium">
                     {tenant.tenantName}
                   </TableCell>
-                  <TableCell>{tenant.moveInDate}</TableCell>
-                  <TableCell>{tenant.moveOutDate}</TableCell>
+                  <TableCell className="px-4 py-3">{tenant.moveInDate}</TableCell>
+                  <TableCell className="px-4 py-3">{tenant.moveOutDate}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </div>
+        </>
       )}
     </div>
   );

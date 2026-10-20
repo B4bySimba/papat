@@ -24,16 +24,16 @@ export function RowSheet({
   title = "Details",
   children,
   side = "right",
-  widthClass = "w-[400px] sm:w-[500px]",
+  widthClass = "w-full sm:w-[500px]",
 }: Props) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side={side} className={widthClass}>
-        <SheetHeader>
-          <SheetTitle>{title}</SheetTitle>
+      <SheetContent side={side} className={`gap-0 ${widthClass}`}>
+        <SheetHeader className="px-4 pt-5 sm:px-6">
+          <SheetTitle className="text-lg">{title}</SheetTitle>
         </SheetHeader>
-        <Separator className="my-4" />
-        <div className="text-sm space-y-3 p-6">{children}</div>
+        <Separator />
+        <div className="flex-1 overflow-y-auto text-sm space-y-3 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6">{children}</div>
       </SheetContent>
     </Sheet>
   );

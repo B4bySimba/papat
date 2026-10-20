@@ -20,16 +20,24 @@ export default function StatCard({
   className,
 }: StatCardProps) {
   return (
-    <Card className={cn("w-full", className)}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
+    <Card className={cn("@container/stat h-full w-full justify-between gap-2 py-4 sm:gap-3 sm:py-5", className)}>
+      <CardHeader className="flex flex-row items-center justify-between gap-2 px-3.5 @min-[12rem]/stat:px-5">
+        <CardTitle className="text-xs font-medium leading-snug text-muted-foreground @min-[12rem]/stat:text-sm">
           {title}
         </CardTitle>
-        {Icon && <Icon className="h-5 w-5 text-muted-foreground" />}
+        {Icon && (
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary @max-[12rem]/stat:hidden">
+            <Icon className="h-4 w-4" />
+          </span>
+        )}
       </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
-        {subtext && <p className="text-xs text-muted-foreground">{subtext}</p>}
+      <CardContent className="px-3.5 @min-[12rem]/stat:px-5">
+        <div className="wrap-break-word text-lg font-bold leading-tight tracking-tight tabular-nums @min-[12rem]/stat:text-2xl">
+          {value}
+        </div>
+        {subtext && (
+          <p className="mt-1 text-xs text-muted-foreground @max-[8rem]/stat:hidden">{subtext}</p>
+        )}
       </CardContent>
     </Card>
   );

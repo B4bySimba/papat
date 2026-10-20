@@ -327,8 +327,8 @@ export function AddTenantModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <Card className="w-full max-w-2xl mx-4 max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black/50 flex items-end justify-center z-50 animate-in fade-in-0 duration-200 sm:items-center">
+      <Card className="w-full max-w-2xl mx-0 sm:mx-4 rounded-b-none sm:rounded-xl gap-4 sm:gap-6 animate-in slide-in-from-bottom-10 duration-300 sm:slide-in-from-bottom-0 sm:zoom-in-95 max-h-[94dvh] sm:max-h-[90vh] overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <div>
             <CardTitle className="flex items-center gap-2">
@@ -344,9 +344,9 @@ export function AddTenantModal({
           </Button>
         </CardHeader>
 
-        <CardContent className="overflow-y-auto max-h-[calc(90vh-120px)]">
+        <CardContent className="overflow-y-auto max-h-[calc(94dvh-110px)] sm:max-h-[calc(90vh-120px)]">
           <Tabs defaultValue="personal" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid h-10 w-full grid-cols-4 max-sm:[&_svg]:hidden">
               <TabsTrigger value="personal" className="flex items-center gap-2">
                 <User className="h-4 w-4" />
                 Personal
@@ -368,7 +368,7 @@ export function AddTenantModal({
 
             {/* PERSONAL TAB */}
             <TabsContent value="personal" className="space-y-4 mt-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <Label htmlFor="firstName">
                     First Name <span className="text-red-500">*</span>
@@ -400,7 +400,7 @@ export function AddTenantModal({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <Label htmlFor="phone">
                     Phone Number <span className="text-red-500">*</span>
@@ -494,7 +494,7 @@ export function AddTenantModal({
 
             {/* LEASE TAB */}
             <TabsContent value="lease" className="space-y-4 mt-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <Label htmlFor="property">
                     Property <span className="text-red-500">*</span>
@@ -543,7 +543,7 @@ export function AddTenantModal({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <Label htmlFor="leaseStart">
                     Lease Start Date <span className="text-red-500">*</span>
@@ -572,7 +572,7 @@ export function AddTenantModal({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <Label htmlFor="rentAmount">Monthly Rent ($)</Label>
                   <Input

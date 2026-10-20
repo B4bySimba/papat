@@ -83,80 +83,80 @@ export default function Ledger({ data, year }: LedgerProps) {
   }
 
   return (
-    <div className="p-4 space-y-6 max-w-4xl mx-auto print-container h-[400px] overflow-y-auto">
+    <div className="space-y-3 max-w-4xl mx-auto print-container sm:space-y-4 md:h-[440px] md:overflow-y-auto md:p-1 md:pr-2">
       {transformedData.map((entry, idx) => (
         <Card
           key={idx}
-          className="rounded-xl shadow-lg overflow-hidden print-card"
+          className="gap-0 py-0 rounded-xl shadow-xs overflow-hidden print-card"
         >
-          <CardHeader className="bg-gray-50 p-4 border-b print-card-header">
-            <CardTitle className="text-2xl font-bold text-gray-800">
+          <CardHeader className="bg-gray-50 px-4 py-3 border-b print-card-header sm:px-6 [.border-b]:pb-3">
+            <CardTitle className="text-base font-bold text-gray-800 sm:text-lg">
               {entry.month}
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-6 space-y-6">
+          <CardContent className="p-4 space-y-4 sm:p-6 sm:space-y-5">
             {/* Main Financial Summary */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-3 sm:gap-x-8 sm:gap-y-4">
               <div>
-                <p className="text-sm text-muted-foreground">Carry Forward</p>
-                <p className="font-semibold text-lg">
+                <p className="text-xs text-muted-foreground sm:text-sm">Carry Forward</p>
+                <p className="font-semibold text-base tabular-nums sm:text-lg">
                   Ksh.{entry.carryForward.toLocaleString()}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Rent</p>
-                <p className="font-semibold text-lg">
+                <p className="text-xs text-muted-foreground sm:text-sm">Rent</p>
+                <p className="font-semibold text-base tabular-nums sm:text-lg">
                   {entry.rentCharged ? `Ksh.${entry.rentCharged.toLocaleString()}` : "-"}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Current Charges</p>
-                <p className="font-semibold text-lg">
+                <p className="text-xs text-muted-foreground sm:text-sm">Current Charges</p>
+                <p className="font-semibold text-base tabular-nums sm:text-lg">
                   Ksh.{entry.currentCharges.toLocaleString()}
                 </p>
               </div>
               {entry.transfer !== 0 && (
                 <div>
-                  <p className="text-sm text-muted-foreground">{entry.transferNote ?? "Transfer"}</p>
-                  <p className="font-semibold text-lg">
+                  <p className="text-xs text-muted-foreground sm:text-sm">{entry.transferNote ?? "Transfer"}</p>
+                  <p className="font-semibold text-base tabular-nums sm:text-lg">
                     Ksh.{entry.transfer.toLocaleString()}
                   </p>
                 </div>
               )}
             </div>
-            water billage
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Water billage</p>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-3 sm:gap-x-8 sm:gap-y-4">
               {entry.usage !== undefined && (
                 <div>
-                  <p className="text-sm text-muted-foreground">Usage</p>
-                  <p className="font-semibold text-lg">{entry.usage} units</p>
+                  <p className="text-xs text-muted-foreground sm:text-sm">Usage</p>
+                  <p className="font-semibold text-base tabular-nums sm:text-lg">{entry.usage} units</p>
                 </div>
               )}
               {entry.waterCharge !== undefined && (
                 <div>
-                  <p className="text-sm text-muted-foreground">Water Charge</p>
-                  <p className="font-semibold text-lg">
+                  <p className="text-xs text-muted-foreground sm:text-sm">Water Charge</p>
+                  <p className="font-semibold text-base tabular-nums sm:text-lg">
                     Ksh.{entry.waterCharge.toLocaleString()}
                   </p>
                 </div>
               )}
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-3 sm:gap-x-8 sm:gap-y-4">
               <div>
-                <p className="text-sm text-muted-foreground">Expected</p>
-                <p className="font-semibold text-lg">
+                <p className="text-xs text-muted-foreground sm:text-sm">Expected</p>
+                <p className="font-semibold text-base tabular-nums sm:text-lg">
                   Ksh.{entry.expected.toLocaleString()}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Collected</p>
-                <p className="font-semibold text-lg text-green-600">
+                <p className="text-xs text-muted-foreground sm:text-sm">Collected</p>
+                <p className="font-semibold text-base tabular-nums text-green-600 sm:text-lg">
                   Ksh.{entry.collected.toLocaleString()}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Balance</p>
-                <p className={`font-bold text-xl ${balanceTone(entry.balance)}`}>
+                <p className="text-xs text-muted-foreground sm:text-sm">Balance</p>
+                <p className={`font-bold text-lg tabular-nums sm:text-xl ${balanceTone(entry.balance)}`}>
                   {formatBalance(entry.balance)}
                 </p>
               </div>

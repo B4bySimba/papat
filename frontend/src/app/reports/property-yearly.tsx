@@ -158,7 +158,7 @@ export function PropertyYearly({
   // Loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background p-4">
+      <div className="bg-background p-0 sm:min-h-screen sm:p-4">
         <div className="max-w-full mx-auto space-y-6">
           <div className="flex items-center gap-4">
             <Skeleton className="h-10 w-10 rounded" />
@@ -182,14 +182,14 @@ export function PropertyYearly({
   // Empty state
   if (transformedData.length === 0) {
     return (
-      <div className="min-h-screen bg-background p-4">
+      <div className="bg-background p-0 sm:min-h-screen sm:p-4">
         <div className="max-w-full mx-auto space-y-6">
           <div className="flex items-center gap-4">
             <Button variant="outline" size="icon" onClick={onBack}>
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div>
-              <h1 className="text-3xl font-bold">{propertyName}</h1>
+              <h1 className="truncate text-xl font-bold sm:text-3xl">{propertyName}</h1>
               <p className="text-muted-foreground">
                 Yearly Report - {year} {period !== "All Year" && `(${period})`}
               </p>
@@ -559,35 +559,35 @@ export function PropertyYearly({
   };
 
   return (
-    <div className="min-h-screen bg-background p-4">
+    <div className="bg-background p-0 sm:min-h-screen sm:p-4">
       <div id="report-content" className="max-w-full mx-auto space-y-6">
         {/* Header with Back Button */}
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             <Button
               variant="outline"
               size="icon"
               onClick={onBack}
-              className="h-10 w-10 bg-transparent"
+              className="h-10 w-10 shrink-0 bg-transparent"
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div>
-              <h1 className="text-3xl font-bold">{propertyName}</h1>
+              <h1 className="truncate text-xl font-bold sm:text-3xl">{propertyName}</h1>
               <p className="text-muted-foreground">
                 Yearly Report - {year}
                 {period !== "All Year" && (
-                  <span className="ml-2 text-sm bg-purple-100 text-purple-800 px-2 py-1 rounded">
+                  <span className="ml-2 inline-block text-xs sm:text-sm bg-purple-100 text-purple-800 px-2 py-1 rounded">
                     {period}
                   </span>
                 )}
                 {includePastTenantsData && (
-                  <span className="ml-2 text-sm bg-purple-100 text-purple-800 px-2 py-1 rounded">
+                  <span className="ml-2 inline-block text-xs sm:text-sm bg-purple-100 text-purple-800 px-2 py-1 rounded">
                     Including Past Tenants
                   </span>
                 )}
                 {isFiltered && (
-                  <span className="ml-2 text-sm bg-green-100 text-green-800 px-2 py-1 rounded">
+                  <span className="ml-2 inline-block text-xs sm:text-sm bg-green-100 text-green-800 px-2 py-1 rounded">
                     {transformedData.length} units selected
                   </span>
                 )}
@@ -595,7 +595,7 @@ export function PropertyYearly({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="grid grid-cols-3 gap-2 sm:flex sm:items-center">
             <Button
               variant="outline"
               size="sm"

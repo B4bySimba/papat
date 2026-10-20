@@ -25,6 +25,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import type { CustomTooltipProps } from "@/components/ui/chart";
+import { formatCompact } from "@/lib/utils";
 
 
 interface Props {
@@ -52,14 +53,14 @@ export default function AreaChartCard({
       : data.slice(Math.max(0, selectedIndex - 1), selectedIndex + 2);
 
   return (
-    <Card>
-      <CardHeader className="flex items-center gap-2 space-y-0 border-b py-5 sm:flex-row">
-        <div className="grid flex-1 gap-1 text-center sm:text-left">
-          <CardTitle>{title}</CardTitle>
+    <Card className="gap-0 overflow-hidden py-0">
+      <CardHeader className="flex flex-col gap-3 border-b px-4 py-4 sm:flex-row sm:items-center sm:px-6 sm:py-5 [.border-b]:pb-4 sm:[.border-b]:pb-5">
+        <div className="grid flex-1 gap-1">
+          <CardTitle className="text-base sm:text-lg">{title}</CardTitle>
           <CardDescription>{description}</CardDescription>
         </div>
         <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-          <SelectTrigger className="w-[160px] rounded-lg sm:ml-auto">
+          <SelectTrigger className="w-full rounded-lg sm:ml-auto sm:w-[160px]">
             <SelectValue>
               {selectedMonth === "all" ? "All months" : selectedMonth}
             </SelectValue>
@@ -80,12 +81,12 @@ export default function AreaChartCard({
         </Select>
       </CardHeader>
 
-      <CardContent className="px-1 pt-4 sm:px-4 sm:pt-6">
+      <CardContent className="px-2 pt-4 pb-3 sm:px-6 sm:pt-6 sm:pb-5">
         <ChartContainer
           config={config}
-          className="aspect-auto h-[265px] w-full"
+          className="aspect-auto h-[240px] w-full sm:h-[280px]"
         >
-          <AreaChart data={slicedData}>
+          <AreaChart data={slicedData} margin={{ left: 0, right: 8, top: 4 }}>
             <defs>
               {Object.entries(config).map(([key, { color }]) => (
                 <linearGradient
@@ -102,14 +103,21 @@ export default function AreaChartCard({
               ))}
             </defs>
 
-            <CartesianGrid vertical={false} />
+            <CartesianGrid vertical={false} strokeDasharray="3 3" />
             <XAxis
               dataKey={xDataKey}
               tickLine={false}
               axisLine={false}
               tickMargin={8}
+              tickFormatter={(v) => String(v).slice(0, 3)}
             />
-            <YAxis tickLine={false} axisLine={false} tickMargin={8} />
+            <YAxis
+              tickLine={false}
+              axisLine={false}
+              tickMargin={4}
+              width={40}
+              tickFormatter={formatCompact}
+            />
             <ChartTooltip
               cursor={false}
               content={(props: any) => (

@@ -205,12 +205,12 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50/50 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="sm:p-2">
+      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">
+        <div className="flex items-start justify-between gap-3 sm:items-center">
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold tracking-tight sm:text-3xl">
               User Management
             </h1>
             <p className="text-muted-foreground">
@@ -227,7 +227,7 @@ export default function AdminPage() {
             }}
           >
             <DialogTrigger asChild>
-              <Button onClick={() => setIsAddUserOpen(true)} className="gap-2">
+              <Button onClick={() => setIsAddUserOpen(true)} className="shrink-0 gap-2">
                 <Plus className="h-4 w-4" />
                 Add User
               </Button>
@@ -246,7 +246,7 @@ export default function AdminPage() {
 
               <div className="space-y-6">
                 {/* User Info */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="name">Full Name</Label>
                     <Input
@@ -348,7 +348,7 @@ export default function AdminPage() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 lg:gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Users</CardTitle>

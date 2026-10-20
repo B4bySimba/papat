@@ -236,9 +236,9 @@ export function LogPaymentFloating({
   }, [formData.tenant, formData.property, formData.unit, leaseCode]);
 
   return (
-    <div className="fixed bottom-4 right-4 z-50">
+    <div className="fixed inset-x-0 bottom-0 z-50 sm:inset-x-auto sm:bottom-4 sm:right-4">
       {isSuccess ? (
-        <Card className="w-80 border-green-200 bg-green-50">
+        <Card className="w-full rounded-b-none border-green-200 bg-green-50 pb-safe sm:w-80 sm:rounded-xl">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 text-green-700">
               <Check className="h-5 w-5" />
@@ -247,7 +247,7 @@ export function LogPaymentFloating({
           </CardContent>
         </Card>
       ) : (
-        <Card className="w-85 shadow-lg border-2 bg-slate-50">
+        <Card className="w-full gap-0 rounded-b-none border-2 bg-slate-50 py-2 shadow-[0_-8px_30px_rgba(0,0,0,0.12)] animate-in slide-in-from-bottom-10 duration-300 sm:w-85 sm:rounded-xl sm:py-6 sm:gap-6 sm:shadow-lg sm:slide-in-from-bottom-4">
           <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0">
             <CardTitle className="flex items-center gap-2 text-sm font-medium">
               <DollarSign className="h-4 w-4" />
@@ -257,12 +257,12 @@ export function LogPaymentFloating({
               variant="ghost"
               size="icon"
               onClick={onClose}
-              className="h-6 w-6"
+              className="h-8 w-8 rounded-full sm:h-6 sm:w-6"
             >
-              <X className="h-3 w-3" />
+              <X className="h-4 w-4 sm:h-3 sm:w-3" />
             </Button>
           </CardHeader>
-          <CardContent className="p-4 space-y-2 max-h-[85vh] overflow-y-auto">
+          <CardContent className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] space-y-2 max-h-[78dvh] overflow-y-auto sm:max-h-[85vh] sm:pb-4">
             <form onSubmit={handleSubmit} className="space-y-2 text-sm">
               <div>
                 <Label htmlFor="lease" className="text-xs mb-1 block">
@@ -275,7 +275,7 @@ export function LogPaymentFloating({
                     setFormData({ ...formData, lease: e.target.value })
                   }
                   placeholder="e.g., LSE-2023-0021"
-                  className="h-8"
+                  className="h-10 sm:h-8"
                 />
               </div>
 
@@ -283,7 +283,7 @@ export function LogPaymentFloating({
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full h-8 text-xs bg-blue-50 hover:bg-blue-100 text-blue-600 border-blue-200"
+                  className="w-full h-10 sm:h-8 text-xs bg-blue-50 hover:bg-blue-100 text-blue-600 border-blue-200"
                   onClick={() => setShowLeaseSearchTabs(true)}
                 >
                   Find Lease by Tenant or Property
@@ -393,7 +393,7 @@ export function LogPaymentFloating({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label htmlFor="amount" className="text-xs">
-                    Amount ($)
+                    Amount (KES)
                   </Label>
                   <Input
                     id="amount"
@@ -403,7 +403,7 @@ export function LogPaymentFloating({
                       setFormData({ ...formData, amount: e.target.value })
                     }
                     placeholder="1800"
-                    className="h-8"
+                    className="h-10 sm:h-8"
                   />
                 </div>
                 <div>
@@ -416,7 +416,7 @@ export function LogPaymentFloating({
                     onChange={(value) =>
                       setFormData({ ...formData, date: value })
                     }
-                    className="h-8"
+                    className="h-10 sm:h-8"
                   />
                 </div>
               </div>
@@ -444,12 +444,12 @@ export function LogPaymentFloating({
                     setFormData({ ...formData, reference: e.target.value })
                   }
                   placeholder="Optional"
-                  className="h-8"
+                  className="h-10 sm:h-8"
                 />
               </div>
               <Button
                 type="submit"
-                className="w-full h-8"
+                className="w-full h-10 sm:h-8"
                 disabled={isSubmitting || !isFormValid}
               >
                 {isSubmitting ? "Logging..." : "Log Payment"}

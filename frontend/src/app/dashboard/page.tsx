@@ -22,7 +22,7 @@ export default async function DashboardPage({
       <DashboardCards />
       <FutureDatedPayments payments={futurePayments} />
       <DashboardClient years={years} summary={summary} pastTenants={pastTenants} />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
         <RecentPayments />
         <MaintenanceRequests />
       </div>

@@ -400,8 +400,8 @@ export function AddPropertyWizard({ onClose }: { onClose: () => void }) {
   const [attemptedNext, setAttemptedNext] = useState(false);
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <Card className="w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/50 flex items-end justify-center z-50 animate-in fade-in-0 duration-200 sm:items-center">
+      <Card className="w-full max-w-2xl mx-0 sm:mx-4 rounded-b-none sm:rounded-xl gap-4 sm:gap-6 animate-in slide-in-from-bottom-10 duration-300 sm:slide-in-from-bottom-0 sm:zoom-in-95 max-h-[94dvh] sm:max-h-[90vh] overflow-y-auto">
         <CardHeader>
           <div className="flex items-center gap-2">
             <Home className="h-5 w-5" />

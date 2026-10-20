@@ -39,7 +39,7 @@ export default function YearSelector({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-[140px] justify-between"
+          className="h-10 w-[120px] justify-between bg-background sm:w-[140px]"
         >
           {selectedYear || "Select year..."}
           <ChevronsUpDown className="opacity-50 h-4 w-4 ml-2" />

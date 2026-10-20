@@ -49,13 +49,13 @@ export function FilterCombobox({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className={cn("w-[180px] justify-between", className)}
+          className={cn("w-[180px] justify-between bg-background font-normal", className)}
         >
-          {selectedLabel || placeholder}
+          <span className="truncate">{selectedLabel || placeholder}</span>
           <ChevronsUpDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[180px] p-0">
+      <PopoverContent align="start" className="w-(--radix-popover-trigger-width) min-w-[200px] p-0">
         <Command>
           <CommandInput placeholder="Search..." />
           <CommandList>

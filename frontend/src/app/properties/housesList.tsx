@@ -5,7 +5,6 @@ import { SkeletonHouseList } from "@/components/skeleton/houseList";
 import AZFilter from "@/components/azFilter";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Search } from "lucide-react";
 import HouseCard from "@/components/houses/HouseCard";
 
@@ -37,7 +36,11 @@ export default function HousesList() {
 
   if (loading) return <SkeletonHouseList />;
   if (error || houses.length === 0)
-    return <p className="text-center text-gray-500">No properties found.</p>;
+    return (
+      <div className="rounded-xl border border-dashed bg-card py-16 text-center text-sm text-muted-foreground">
+        No properties found.
+      </div>
+    );
 
   const filteredHouses = houses.filter((house) =>
     house.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -46,8 +49,8 @@ export default function HousesList() {
   return (
     <div onClick={() => selectedLetter && setSelectedLetter(null)}>
       {/* --- Search & Filter Header --- */}
-      <div className="flex flex-col md:flex-row items-center gap-4 justify-center mb-6">
-        <div>
+      <div className="mb-4 flex flex-col gap-3 sm:mb-6 md:flex-row md:items-center md:justify-center md:gap-4">
+        <div className="min-w-0">
           <AZFilter
             selected={selectedLetter}
             onSelect={(char) => {
@@ -60,21 +63,19 @@ export default function HousesList() {
           />
         </div>
 
-        <div className="flex gap-2 items-center w-full md:w-auto">
+        <div className="relative w-full md:w-auto">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search house by name..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full md:w-100"
+            className="h-10 w-full bg-background pl-9 md:w-100"
           />
-          <Button variant="secondary" className="px-3">
-            <Search className="h-5 w-5" />
-          </Button>
         </div>
       </div>
 
       {/* --- Grid of Houses --- */}
-      <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(250px,1fr))]">
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-[repeat(auto-fill,minmax(240px,1fr))] sm:gap-3 md:pr-14">
         {filteredHouses.map((house) => {
           const firstChar = house.name.charAt(0).toUpperCase();
           const matches =
