@@ -78,11 +78,11 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
 export const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Properties", href: "/properties", icon: Building },
-  { label: "Past Tenants", href: "/pastTenants", icon: UserRoundX },
   { label: "Transactions", href: "/transactions", icon: CreditCard },
   { label: "Meter Readings", href: "/meterReadings", icon: Gauge },
   { label: "Maintenances", href: "/maintenances", icon: Wrench },
   { label: "Bills", href: "/bills", icon: NotebookTabs },
+  { label: "Past Tenants", href: "/pastTenants", icon: UserRoundX },
 ];
 
 const user = {
