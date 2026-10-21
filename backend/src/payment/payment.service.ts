@@ -2222,12 +2222,30 @@ export class PaymentService {
     return rows.sort((a, b) => a.unitNumber.localeCompare(b.unitNumber, undefined, { numeric: true }));
   }
 
+  /** The last manager summary per past-tenants setting, keyed by the day and the rows it was built from. */
+  private readonly managerSummaries = new Map<boolean, { key: string; summary: ReturnType<PaymentService['aggregate']> }>();
+
   async getManagerLevelSummaryV2(includePastTenants = false) {
-    const leases = await prisma.lease.findMany({
-      select: { id: true },
-    });
-    const ledgers = await this.ledgerService.ledgersFor(leases.map((l) => l.id), includePastTenants);
-    return this.aggregate(ledgers.values());
+    // The same rows on the same day give the same summary, so the last one is reused until a row changes.
+    const dayKey = () => `${endOfLocalDay(new Date()).getTime()}#`;
+    const last = this.managerSummaries.get(includePastTenants);
+    if (last && last.key === dayKey() + (await this.ledgerService.inputsFingerprint())) return last.summary;
+
+    const { key, summary } = await prisma.$transaction(
+      async (tx) => {
+        // One snapshot for the fingerprint and the rows, so the key names exactly what was read.
+        const key = dayKey() + (await this.ledgerService.inputsFingerprint(tx));
+        const leases = await tx.lease.findMany({
+          select: { id: true },
+        });
+        const ledgers = await this.ledgerService.ledgersFor(leases.map((l) => l.id), includePastTenants, tx);
+        return { key, summary: this.aggregate(ledgers.values()) };
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, timeout: 60_000 },
+    );
+    // Built across midnight: the rows may be for either day, so don't keep it.
+    if (key.startsWith(dayKey())) this.managerSummaries.set(includePastTenants, { key, summary });
+    return summary;
   }
 
   async monthlyReportV2(

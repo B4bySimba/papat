@@ -138,6 +138,23 @@ export class LedgerService {
     return ledgers;
   }
 
+  /**
+   * Changes whenever a row `ledgersFor` reads changes: any lease, rate change, unit, reading or payment.
+   * Read in the same transaction as the ledgers, it names exactly the rows they were built from.
+   * A new table feeding the ledgers must be added here too.
+   */
+  async inputsFingerprint(db: Prisma.TransactionClient = prisma): Promise<string> {
+    const [{ fingerprint }] = await db.$queryRaw<{ fingerprint: string }[]>`
+      select concat_ws('#',
+        (select count(*) || ':' || coalesce(sum(hashtextextended(t::text, 0)), 0) from "Lease" t),
+        (select count(*) || ':' || coalesce(sum(hashtextextended(t::text, 0)), 0) from "RateChange" t),
+        (select count(*) || ':' || coalesce(sum(hashtextextended(t::text, 0)), 0) from "Unit" t),
+        (select count(*) || ':' || coalesce(sum(hashtextextended(t::text, 0)), 0) from "MeterReading" t),
+        (select count(*) || ':' || coalesce(sum(hashtextextended(t::text, 0)), 0) from "payment" t)
+      ) as fingerprint`;
+    return fingerprint;
+  }
+
   async ledgerForCode(leaseCode: string): Promise<MonthRow[]> {
     const lease = await prisma.lease.findFirst({ where: { code: leaseCode }, select: { id: true } });
     if (!lease) throw new Error('Lease not found');

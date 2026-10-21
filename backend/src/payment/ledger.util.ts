@@ -100,6 +100,14 @@ export const RATE_FIELDS = [
 ] as const;
 export type RateField = (typeof RATE_FIELDS)[number];
 
+/** [label, price] of the seven extra charges. Literal keys: a key built per read made those reads a third of the engine's time. */
+const ADDED_FIELDS = [
+  ['added_field_1', 'added_field_1_price'], ['added_field_2', 'added_field_2_price'],
+  ['added_field_3', 'added_field_3_price'], ['added_field_4', 'added_field_4_price'],
+  ['added_field_5', 'added_field_5_price'], ['added_field_6', 'added_field_6_price'],
+  ['added_field_7', 'added_field_7_price'],
+] as const;
+
 /** From `month` ("YYYY-MM") on, each non-null field replaces the lease's value until a later change. */
 export type RateChange = { month: string } & { [F in RateField]?: LeaseFieldsForLedger[F] | null };
 
@@ -209,9 +217,9 @@ export function generateCharges(
         if (t.additional && t.additionalCharges) {
           events.push({ date: billOn, label: t.additional, amount: t.additionalCharges });
         }
-        for (let i = 1; i <= 7; i++) {
-          const price = (t as any)[`added_field_${i}_price`];
-          const label = (t as any)[`added_field_${i}`];
+        for (const [labelField, priceField] of ADDED_FIELDS) {
+          const price = t[priceField];
+          const label = t[labelField];
           if (price && label) events.push({ date: billOn, label, amount: price });
         }
       }
