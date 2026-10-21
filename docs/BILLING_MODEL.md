@@ -61,6 +61,8 @@ is reached (`≤ asOf`):
 | extras: `garbageFee`, `additional`, `added_field_1..7` | same date as that month's rent | every month **except the first**, same rule | each price in force in M |
 | `water` | the 1st of the month **after** the reading's `billingPeriod`, or the move-out date if earlier | one per closing reading whose `billingPeriod` is in or after the first month | `usage × waterRate + (usage > 0 ? serviceCharge : 0)`, at the rates in force in the month it is **billed** |
 | `transfer` | move day (see §12) | only for a tenant who moved units | the balance carried across |
+| `depositReturned` | move-out date | once, for a tenant who left (not one who moved units) | minus the deposit held (summed along any earlier moves) |
+| `depositExpenses`, `depositRefund` | move-out date | once, when staff record them | what was spent from the deposit (with a note) and what was paid back |
 
 "In force in M" means the move-in terms with every `RateChange` up to M applied
 (`termsAt`), so the due date in M uses M's `rentDue` too.
@@ -75,6 +77,11 @@ Usage walk (readings sorted by `billingPeriod`, baseline `onEntryMeterReading`):
 - `billingPeriod: null` readings (opening reading, unclassified) never bill.
 - At move-out, water not yet billed posts on the move-out date; after that the
   tenant's maths halts.
+- At move-out the company owes the tenant their deposit, so it comes back on
+  the move-out date; expenses and the refund are charged against it. What is
+  left clears what they owe. Collected stays cash received only. Example: owes
+  3,000, deposit 10,000, expenses 2,000, refund 5,000: -10,000 + 2,000 + 5,000
+  = -3,000 of charges, balance 0. Before staff decide, the balance is -7,000.
 
 Examples (rentDue 5): on July 3 July's charges are already in the ledger, so a
 July 2 payment simply reduces what is owed. A lease terminated July 4 is never
@@ -117,6 +124,7 @@ at end of M−1:
 | `extraCharges` | `{label: amount}` of extras posted in M |
 | `rentRate`, `waterRate` | the rates in force in M (after move-out: the final ones) |
 | `transfer`, `transferNote` | balance moved out (negative) or brought in (positive) in M, e.g. "Moved to unit 7"; 0 and null otherwise |
+| `depositLines` | the move-out month's "Deposit returned", "Deposit used: note" and "Deposit refunded" lines; empty otherwise |
 | `payments` | raw payments dated in M |
 
 Identity to remember: `expected(M) = carryForward(M) + currentCharges(M)` and
@@ -131,11 +139,13 @@ tenant's page and the transactions list.
 ## 6. Aggregations
 
 - **House** (`getHouseLevelSummaryV2`): per month, sum `expected/collected/
-  balance/usage/waterCharge/serviceCharge` over every lease that has a row that
-  month (a tenant's rows stop at move-out). `includePastTenantsData=true` runs a
-  past tenant's rows on to today with no new charges, so what they still owe
-  (and anything they pay later) stays in the totals (the "Include past tenants"
-  switch on the dashboard and property pages).
+  balance/usage/waterCharge/serviceCharge` over the current tenants' leases.
+  `includePastTenantsData=true` (the "Include past tenants" switch on the
+  dashboard and property pages) adds every past tenant, with their rows run on
+  to today with no new charges, so what they still owe and anything they pay
+  later stays in the totals. With the switch off past tenants are hidden from
+  every month, so a past month's total drops when a tenant leaves. A tenant's
+  own page always runs on to today.
 - **Manager** (`getManagerLevelSummaryV2`): same, over all houses.
 - **Monthly report** (`monthlyReportV2`): the tenant row of (year, month) per
   unit, with statement semantics (expected includes carry).
@@ -239,7 +249,10 @@ The engine reads every date with server-local getters, so the backend must run
 in Africa/Nairobi (`main.ts` refuses to start otherwise; Docker sets `TZ`).
 `billingPeriod` is written as the Nairobi month start (`parseMonth`). The meter
 form requires it ("For Month") except for an opening reading. `readOn` never
-affects money.
+affects money. A reading belongs to the tenant who lived in the unit during its
+"For Month" (the newest if two overlap), not to whoever lives there when it is
+typed; a tenant who left that month and already has its reading (the final one,
+taken when vacating) is skipped.
 
 ## 12. Changes and moves
 

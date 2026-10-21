@@ -16,8 +16,8 @@ export class LandlordService {
     return prisma.lease.findFirst({
       where: {
         tenantId, // ✅ This is fine if tenantId is definitely a number
-        status: 'ACTIVE',
       },
+      orderBy: { startDate: 'desc' },
       select: {
         code: true,
       },

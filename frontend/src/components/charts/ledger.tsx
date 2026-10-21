@@ -33,6 +33,7 @@ interface LedgerEntry {
   currentCharges: number;
   transfer: number;
   transferNote: string | null;
+  depositLines: { label: string; amount: number }[];
   expected: number;
   collected: number;
   balance: number;
@@ -47,6 +48,8 @@ interface LedgerProps {
   year: string;
 }
 
+const sumOf = (lines?: { amount: number }[]) => (lines ?? []).reduce((sum, l) => sum + l.amount, 0);
+
 export default function Ledger({ data, year }: LedgerProps) {
   const transformedData = useMemo(() => {
     if (!data || data.length === 0) return [];
@@ -57,9 +60,10 @@ export default function Ledger({ data, year }: LedgerProps) {
       month: entry.month,
       carryForward: entry.carryForward || 0,
       rentCharged: entry.rentCharged || 0,
-      currentCharges: (entry.currentCharges || 0) - (entry.transfer || 0),
+      currentCharges: (entry.currentCharges || 0) - (entry.transfer || 0) - sumOf(entry.depositLines),
       transfer: entry.transfer || 0,
       transferNote: entry.transferNote ?? null,
+      depositLines: entry.depositLines || [],
       expected: entry.expected,
       collected: entry.collected || 0,
       balance: entry.balance || 0,
@@ -123,6 +127,14 @@ export default function Ledger({ data, year }: LedgerProps) {
                   </p>
                 </div>
               )}
+              {entry.depositLines.map((line) => (
+                <div key={line.label}>
+                  <p className="text-xs text-muted-foreground sm:text-sm">{line.label}</p>
+                  <p className="font-semibold text-base tabular-nums sm:text-lg">
+                    Ksh.{line.amount.toLocaleString()}
+                  </p>
+                </div>
+              ))}
             </div>
             <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Water billage</p>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-3 sm:gap-x-8 sm:gap-y-4">

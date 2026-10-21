@@ -36,6 +36,10 @@ export interface LeaseFieldsForLedger {
   movedOut?: boolean;
   transferIn?: number;
   transferNote?: string;
+  depositHeld?: number;
+  depositExpenses?: number | null;
+  depositExpensesNote?: string | null;
+  depositRefund?: number | null;
 }
 
 export interface ReadingPoint {
@@ -197,6 +201,22 @@ export function generateCharges(
   if (lease.transferIn) {
     events.push({ date: lease.startDate, label: 'transfer', amount: lease.transferIn });
   }
+  // A tenant who leaves (not one who moved units) is owed their deposit back; staff then spend or refund it.
+  if (lease.terminationDate && !lease.movedOut) {
+    const held = lease.depositHeld ?? lease.deposit ?? 0;
+    if (held) events.push({ date: lease.terminationDate, label: 'depositReturned', amount: -held });
+    if (lease.depositExpenses) {
+      events.push({
+        date: lease.terminationDate,
+        label: 'depositExpenses',
+        amount: lease.depositExpenses,
+        meta: { note: lease.depositExpensesNote },
+      });
+    }
+    if (lease.depositRefund) {
+      events.push({ date: lease.terminationDate, label: 'depositRefund', amount: lease.depositRefund });
+    }
+  }
 
   let m = startOfMonth(lease.startDate);
   let isFirst = true;
@@ -350,6 +370,7 @@ export interface MonthRow {
   extraCharges: Record<string, number>;
   transfer: number;
   transferNote: string | null;
+  depositLines: { label: string; amount: number }[];
   payments: { date: Date; amount: number; method: string | null; reference: string | null }[];
 }
 
@@ -424,6 +445,7 @@ export function computeLeaseLedger(
     let previousReading: number | null = null;
     let currentReading: number | null = null;
     const extraCharges: Record<string, number> = {};
+    const depositLines: { label: string; amount: number }[] = [];
 
     for (const c of chargesBy.get(k) ?? []) {
       if (c.label === 'water') {
@@ -437,6 +459,10 @@ export function computeLeaseLedger(
       else if (c.label === 'deposit') deposit += c.amount;
       else if (c.label === 'arrearsbf') arrearsbf += c.amount;
       else if (c.label === 'transfer') transfer += c.amount;
+      else if (c.label === 'depositReturned') depositLines.push({ label: 'Deposit returned', amount: Math.round(c.amount) });
+      else if (c.label === 'depositExpenses')
+        depositLines.push({ label: c.meta?.note ? `Deposit used: ${c.meta.note}` : 'Deposit used', amount: Math.round(c.amount) });
+      else if (c.label === 'depositRefund') depositLines.push({ label: 'Deposit refunded', amount: Math.round(c.amount) });
       else extraCharges[c.label] = (extraCharges[c.label] ?? 0) + c.amount;
     }
 
@@ -471,6 +497,7 @@ export function computeLeaseLedger(
       extraCharges,
       transfer: Math.round(transfer),
       transferNote: transfer ? (lease.transferNote ?? null) : null,
+      depositLines,
       payments: (paymentsBy.get(k) ?? []).map((p) => ({
         date: p.date,
         amount: p.amount,

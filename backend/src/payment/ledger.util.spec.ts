@@ -534,6 +534,58 @@ describe('moving units', () => {
   });
 });
 
+describe('deposit at move-out (Tenant B)', () => {
+  // Deposit 10,000 paid at move-in, owes 3,000 when leaving on 3 Sep (before the 5th, so no September rent).
+  const movedOn = new Date(2026, 8, 3);
+  const lease: LeaseFieldsForLedger = {
+    ...baseLease,
+    startDate: new Date(2026, 7, 1),
+    terminationDate: movedOn,
+    deposit: 10000,
+    arrearsbf: 0,
+    waterRate: 0,
+    serviceCharge: 0,
+    garbageFee: 0,
+    added_field_1: null,
+    added_field_1_price: 0,
+  };
+  const payments = [{ date: new Date(2026, 7, 2), amount: 17000 }];
+  const september = (l: LeaseFieldsForLedger, paid = payments, rowsUntil = movedOn) =>
+    computeLeaseLedger(l, [], paid, movedOn, rowsUntil).find((r) => r.month === 'September')!;
+
+  it('returns the deposit, spends and refunds what staff chose, and settles at 0', () => {
+    const sep = september({ ...lease, depositExpenses: 2000, depositExpensesNote: 'painting, new door', depositRefund: 5000 });
+    expect(sep).toMatchObject({ carryForward: 3000, currentCharges: -3000, expected: 0, collected: 0, balance: 0 });
+    expect(sep.depositLines).toEqual([
+      { label: 'Deposit returned', amount: -10000 },
+      { label: 'Deposit used: painting, new door', amount: 2000 },
+      { label: 'Deposit refunded', amount: 5000 },
+    ]);
+  });
+
+  it('before staff decide, the company owes the tenant what is left of the deposit', () => {
+    expect(september(lease).balance).toBe(-7000);
+  });
+
+  it('a tenant who owed more than the deposit still owes the rest', () => {
+    expect(september(lease, [{ date: new Date(2026, 7, 2), amount: 5000 }]).balance).toBe(5000);
+  });
+
+  it('a payment after moving out lowers the balance when the rows run on', () => {
+    const paid = [{ date: new Date(2026, 7, 2), amount: 5000 }, { date: new Date(2026, 9, 10), amount: 5000 }];
+    const oct = computeLeaseLedger(lease, [], paid, movedOn, endOfLocalDay(new Date(2026, 9, 31))).at(-1)!;
+    expect(oct).toMatchObject({ month: 'October', carryForward: 5000, collected: 5000, balance: 0 });
+  });
+
+  it('a tenant who moved units keeps their deposit', () => {
+    expect(byLabel(generateCharges({ ...lease, movedOut: true }, [], movedOn), 'depositReturned')).toHaveLength(0);
+  });
+
+  it('returns the deposit held across earlier units', () => {
+    expect(september({ ...lease, depositHeld: 12000 }).balance).toBe(3000 - 12000);
+  });
+});
+
 describe('month keys', () => {
   it('round-trips a local month start', () => {
     expect(formatMonth(parseMonth('2026-02'))).toBe('2026-02');

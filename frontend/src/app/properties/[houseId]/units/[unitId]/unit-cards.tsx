@@ -37,11 +37,11 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
-import { DateInput } from "@/components/DateInput";
 import { Label } from "@/components/ui/label";
 import StatCard from "@/components/StatCard";
 import Link from "next/link";
 import MoveTenantSheet from "@/components/tenant/MoveTenantSheet";
+import VacateTenantSheet from "@/components/tenant/VacateTenantSheet";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Textarea } from "@/components/ui/textarea";
@@ -98,9 +98,6 @@ export default function UnitCards({
 
   const [form, setForm] = useState(initialForm);
   const [terminateSheetOpen, setTerminateSheetOpen] = useState(false);
-  const [terminationDate, setTerminationDate] = useState("");
-  const [terminationReason, setTerminationReason] = useState("");
-  const [terminating, setTerminating] = useState(false);
   const [ledgerOpen, setLedgerOpen] = useState(false);
 
   const [editingArrears, setEditingArrears] = useState(false);
@@ -809,85 +806,16 @@ export default function UnitCards({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <Sheet open={terminateSheetOpen} onOpenChange={setTerminateSheetOpen}>
-        <SheetContent
-          side="right"
-          className="w-full sm:w-[500px] p-4 sm:p-6 flex flex-col"
-        >
-          <SheetHeader className="mb-4">
-            <SheetTitle>Terminate Lease</SheetTitle>
-            <SheetDescription>
-              Please enter the termination date and optional reason.
-            </SheetDescription>
-          </SheetHeader>
-
-          <div className="space-y-4 flex-1 overflow-auto pr-2">
-            <div>
-              <Label htmlFor="terminationDate">Termination Date</Label>
-              <DateInput
-                id="terminationDate"
-                value={terminationDate}
-                onChange={setTerminationDate}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="terminationReason">Reason (optional)</Label>
-              <Textarea
-                id="terminationReason"
-                value={terminationReason}
-                onChange={(e) => setTerminationReason(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <SheetFooter className="mt-6 border-t pt-4">
-            <Button
-              disabled={!terminationDate || terminating}
-              onClick={async () => {
-                setTerminating(true);
-                try {
-                  const res = await fetch(
-                    `/api/tenant/vacate/${tenant.tenant.id}`,
-                    {
-                      method: "PATCH",
-                      headers: {
-                        "Content-Type": "application/json",
-                      },
-                      body: JSON.stringify({
-                        terminationDate,
-                        reason: terminationReason,
-                      }),
-                    }
-                  );
-
-                  if (!res.ok) {
-                    const msg = await res.text();
-                    throw new Error(msg || "Failed to terminate lease");
-                  }
-
-                  toast.success("Lease terminated successfully.");
-                  setTerminateSheetOpen(false);
-                  setTenantSheetOpen(false);
-                  onUpdateTenant({ message: "Unit is Vacant" });
-                } catch (err) {
-                  toast.error((err as Error).message);
-                } finally {
-                  setTerminating(false);
-                }
-              }}
-            >
-              {terminating ? "Submitting..." : "Confirm Termination"}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setTerminateSheetOpen(false)}
-            >
-              Cancel
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+      <VacateTenantSheet
+        open={terminateSheetOpen}
+        onOpenChange={setTerminateSheetOpen}
+        tenantId={tenant.tenant.id}
+        waterBilled={tenant.water_bill > 0}
+        onDone={() => {
+          setTenantSheetOpen(false);
+          onUpdateTenant({ message: "Unit is Vacant" });
+        }}
+      />
 
       <MoveTenantSheet
         open={moveSheetOpen}

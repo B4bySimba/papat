@@ -95,7 +95,7 @@ export default function RecentPayments({ leaseCode }: RecentPaymentsProps) {
         columns={paymentColumns}
         viewAllLabel="See All Payments"
         viewAllHref="/transactions"
-        // buttonLabel="Add Payment"
+        buttonLabel="Add Payment"
         onButtonClick={() => setShowAddForm(true)}
         loading={loading}
         emptyLabel="No Payments Found"

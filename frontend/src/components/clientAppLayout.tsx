@@ -55,7 +55,7 @@ export default function ClientAppLayout({
       <div className="flex h-dvh w-full overflow-hidden">
         <AppSidebar {...actions} />
         <div className="flex min-w-0 flex-1 flex-col h-full">
-          <Header />
+          <Header {...actions} />
           <main className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-3 pt-4 pb-28 sm:px-6 sm:pt-6 md:pb-8">
             <div className="mx-auto w-full max-w-[1600px]">{children}</div>
           </main>

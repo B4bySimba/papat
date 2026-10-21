@@ -104,8 +104,13 @@ export class LedgerService {
 
     const input = (lease: (typeof leases)[number]): LeaseFieldsForLedger => {
       const from = lease.movedFromLeaseId === null ? undefined : byId.get(lease.movedFromLeaseId);
+      let depositHeld = lease.deposit ?? 0;
+      for (let id = lease.movedFromLeaseId; id !== null; id = byId.get(id)?.movedFromLeaseId ?? null) {
+        depositHeld += byId.get(id)?.deposit ?? 0;
+      }
       return {
         ...lease,
+        depositHeld,
         movedOut: !!lease.movedTo,
         transferIn: from?.terminationDate ? transferOut(from) : undefined,
         transferNote: lease.movedTo
@@ -158,6 +163,7 @@ export class LedgerService {
   async ledgerForCode(leaseCode: string): Promise<MonthRow[]> {
     const lease = await prisma.lease.findFirst({ where: { code: leaseCode }, select: { id: true } });
     if (!lease) throw new Error('Lease not found');
-    return (await this.ledgersFor([lease.id])).get(lease.id) ?? [];
+    // A past tenant's own statement runs to today, so what they pay after leaving counts.
+    return (await this.ledgersFor([lease.id], true)).get(lease.id) ?? [];
   }
 }

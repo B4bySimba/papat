@@ -127,6 +127,11 @@ export class TenantController {
     return this.tenantService.year(code);
   }
 
+  @Get('past')
+  async allPast() {
+    return this.tenantService.past();
+  }
+
   @Get('past/:id')
   async past(@Param('id', HashidPipe) id: string) {
     return this.tenantService.past(+id);
@@ -183,12 +188,8 @@ export class TenantController {
   }
 
   @Patch('vacateTenant/:id')
-  async vacateTenant(
-    @Param('id', HashidPipe) id: string,
-    @Body('terminationDate') terminationDate: string,
-  ) {
-    console.log(id, terminationDate);
-    return this.tenantService.vacateTenant(+id, terminationDate);
+  async vacateTenant(@Param('id', HashidPipe) id: string, @Body() body: any) {
+    return this.tenantService.vacateTenant(+id, body);
   }
 
   @Delete('deleteTenant/:id')

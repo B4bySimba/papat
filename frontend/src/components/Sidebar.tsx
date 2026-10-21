@@ -23,6 +23,7 @@ import {
   Zap,
   HousePlus,
   UserRoundPlus,
+  UserRoundX,
   PackagePlus,
   Droplet,
   HandCoins,
@@ -74,9 +75,10 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   onAddMeterReading: () => void;
 }
 
-const navItems = [
+export const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Properties", href: "/properties", icon: Building },
+  { label: "Past Tenants", href: "/pastTenants", icon: UserRoundX },
   { label: "Transactions", href: "/transactions", icon: CreditCard },
   { label: "Meter Readings", href: "/meterReadings", icon: Gauge },
   { label: "Maintenances", href: "/maintenances", icon: Wrench },

@@ -8,7 +8,7 @@ import {
 import { Prisma } from 'generated/prisma/client';
 import { HashidService } from 'src/common/hashid/hashid.service';
 import { LedgerService, previewable } from 'src/payment/ledger.service';
-import { endOfLocalDay, formatMonth, houseBase, rateFields, startOfMonth, termsAt } from 'src/payment/ledger.util';
+import { endOfLocalDay, formatMonth, houseBase, MONTH_NAMES, rateFields, startOfMonth, termsAt } from 'src/payment/ledger.util';
 import prisma from 'lib/db';
 
 @Injectable()
@@ -22,7 +22,7 @@ export class TenantService {
   async searchTenants(query: string) {
     const tenants = await prisma.tenant.findMany({
       where: {
-        state: 'ACTIVE',
+        AND: { OR: [{ state: 'ACTIVE' }, { state: 'FORMER', lease: { some: { movedTo: { is: null } } } }] },
         OR: [
           { name: { contains: query, mode: 'insensitive' } },
           { name: { contains: query, mode: 'insensitive' } },
@@ -30,15 +30,19 @@ export class TenantService {
       },
       include: {
         unit: true,
+        lease: { select: { terminationDate: true }, orderBy: { startDate: 'desc' }, take: 1 },
       },
       take: 10,
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ state: 'asc' }, { createdAt: 'desc' }],
     });
 
-    return tenants.map((tenant) => ({
-      value: this.hashIdService.encode(tenant.id), // � encode the ID
-      label: `${tenant.name} - ${tenant.unit?.number ?? 'No Unit'}`,
-    }));
+    return tenants.map((tenant) => {
+      const left = tenant.state === 'FORMER' ? tenant.lease[0]?.terminationDate : null;
+      return {
+        value: this.hashIdService.encode(tenant.id), // � encode the ID
+        label: `${tenant.name} - ${tenant.unit?.number ?? 'No Unit'}${left ? ` (moved out ${left.toLocaleDateString('en-GB')})` : ''}`,
+      };
+    });
   }
 
   async leaseCode(unitId: number) {
@@ -544,26 +548,37 @@ export class TenantService {
     });
   }
 
-  async past(Id: number) {
+  /** Past tenants, newest move-out first: one unit's, or everyone who left the company's units (not those who moved units). */
+  async past(Id?: number) {
     const terminatedLeases = await prisma.lease.findMany({
-      where: {
-        unitId: Id,
-        status: 'TERMINATED',
-      },
+      where: Id === undefined ? { status: 'TERMINATED', movedTo: { is: null } } : { unitId: Id, status: 'TERMINATED' },
+      orderBy: { terminationDate: 'desc' },
       select: {
         tenant: {
           select: {
             name: true,
           },
         },
+        house: { select: { name: true } },
+        unit: { select: { number: true } },
         id: true,
+        houseId: true,
+        unitId: true,
         moveInDate: true,
         terminationDate: true, // This is the move-out date for terminated leases
       },
     });
+    const ledgers = await this.ledger.ledgersFor(terminatedLeases.map((l) => l.id), true);
 
     return terminatedLeases.map((lease) => ({
       leaseId: this.hashIdService.encode(lease.id),
+      houseId: this.hashIdService.encode(lease.houseId),
+      unitId: this.hashIdService.encode(lease.unitId),
+      houseName: lease.house.name,
+      unitNumber: lease.unit.number,
+      moveOutMonth: lease.terminationDate?.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) ?? '',
+      deposit: -((ledgers.get(lease.id) ?? []).flatMap((r) => r.depositLines).find((l) => l.label === 'Deposit returned')?.amount ?? 0),
+      balance: ledgers.get(lease.id)?.at(-1)?.balance ?? 0,
       tenantName: lease.tenant?.name || 'No tenant',
       moveInDate: lease.moveInDate
         ? new Date(lease.moveInDate).toLocaleDateString('en-GB', {
@@ -627,7 +642,12 @@ export class TenantService {
         houseId: true,
         arrearsbf: true,
         terminationDate: true,
+        moveOutReason: true,
+        depositExpenses: true,
+        depositExpensesNote: true,
+        depositRefund: true,
         movedFromLeaseId: true,
+        movedTo: { select: { unit: { select: { number: true } } } },
         rates: { orderBy: { month: 'asc' } },
       },
     });
@@ -635,7 +655,12 @@ export class TenantService {
     if (!found || !found.tenant) {
       throw new NotFoundException('Tenant not Found');
     }
-    const lease = termsAt(found, found.terminationDate ?? new Date());
+    const movedOn = found.terminationDate ?? new Date();
+    const lease = termsAt(found, movedOn);
+    const closing = await prisma.meterReading.findFirst({
+      where: { leaseId: found.id, billingPeriod: startOfMonth(movedOn) },
+      orderBy: { id: 'desc' },
+    });
 
     return {
       tenant: {
@@ -668,6 +693,16 @@ export class TenantService {
       leaseCode: lease.code,
       houseId: this.hashIdService.encode(lease.houseId),
       arrearsbf: lease.arrearsbf,
+      moveOut: {
+        date: movedOn.toLocaleDateString('en-CA'),
+        reason: found.moveOutReason,
+        finalReading: closing?.currentReading ?? null,
+        depositExpenses: found.depositExpenses,
+        depositExpensesNote: found.depositExpensesNote,
+        depositRefund: found.depositRefund,
+        movedToUnit: found.movedTo?.unit.number ?? null,
+        ...(await this.moveOutFigures(found.id, movedOn)),
+      },
     };
   }
 
@@ -802,56 +837,120 @@ export class TenantService {
     });
   }
 
-  async vacateTenant(id: number, terminationDate: string) {
-    // Find the tenant and their unit
-    const tenant = await prisma.tenant.findUnique({
-      where: { id },
-      include: { unit: true },
-    });
-
-    if (!tenant) {
-      throw new Error(`Tenant with ID ${id} not found.`);
+  /** Vacates a tenant, or corrects a past tenant's move-out. A preview saves nothing. */
+  async vacateTenant(
+    tenantId: number,
+    body: {
+      terminationDate: string;
+      reason?: string | null;
+      finalReading?: number | null;
+      depositExpenses?: number | null;
+      depositExpensesNote?: string | null;
+      depositRefund?: number | null;
+      preview?: boolean;
+    },
+  ) {
+    const date = new Date(body.terminationDate);
+    if (isNaN(date.getTime()) || date > endOfLocalDay(new Date())) {
+      throw new BadRequestException('Pick a move-out date up to today.');
+    }
+    if ([body.depositExpenses, body.depositRefund].some((a) => a != null && !(Number(a) >= 0))) {
+      throw new BadRequestException('Check the deposit amounts.');
     }
 
-    if (tenant.state === 'FORMER') {
-      throw new Error(`Tenant ${id} is already vacated.`);
-    }
+    return previewable(!!body.preview, async (tx) => {
+      const lease = await tx.lease.findFirst({
+        where: { tenantId, movedTo: { is: null } },
+        orderBy: { startDate: 'desc' },
+        include: { tenant: true, unit: true, rates: { orderBy: { month: 'asc' } } },
+      });
+      if (!lease) throw new NotFoundException('This tenant has no lease to end.');
+      if (date < lease.startDate) throw new BadRequestException('The move-out date is before this tenancy started.');
+      if (await tx.lease.count({ where: { unitId: lease.unitId, startDate: { gt: lease.startDate, lt: date } } })) {
+        throw new BadRequestException('The next tenant had already moved in by that date.');
+      }
 
-    const name = tenant.name;
-    const unitId = tenant.unitId;
-    const unit = await prisma.unit.findUnique({
-      where: { id: unitId },
-    });
-    const unitNumber = unit?.number;
-    const parsedDate = new Date(terminationDate);
-    console.log(parsedDate);
-
-    if (isNaN(parsedDate.getTime())) {
-      throw new BadRequestException('Invalid termination date');
-    }
-
-    // Transaction: mark tenant as OUT and unit as VACANT
-    await prisma.$transaction([
-      prisma.lease.updateMany({
-        where: { tenantId: id },
+      await this.closeLease(tx, lease, date, body.finalReading);
+      await tx.lease.update({
+        where: { id: lease.id },
         data: {
-          status: 'TERMINATED',
-          terminationDate: parsedDate,
+          moveOutReason: body.reason?.trim() || null,
+          depositExpenses: Number(body.depositExpenses) || null,
+          depositExpensesNote: body.depositExpensesNote?.trim() || null,
+          depositRefund: Number(body.depositRefund) || null,
         },
-      }),
-      prisma.tenant.update({
-        where: { id },
-        data: { state: 'FORMER' },
-      }),
-      prisma.unit.update({
-        where: { id: unitId },
-        data: { state: false },
-      }),
-    ]);
+      });
 
+      return {
+        message: `${lease.tenant.name} moved out of unit ${lease.unit.number}.`,
+        ...(await this.moveOutFigures(lease.id, date, tx)),
+      };
+    });
+  }
+
+  /** Deposit held, what was owed at move-out before the deposit, and the balance today. */
+  private async moveOutFigures(leaseId: number, movedOn: Date, db: Prisma.TransactionClient = prisma) {
+    const rows = (await this.ledger.ledgersFor([leaseId], true, db)).get(leaseId) ?? [];
+    const row = rows.find((r) => r.year === movedOn.getFullYear() && r.month === MONTH_NAMES[movedOn.getMonth()]);
+    const lines = row?.depositLines ?? [];
     return {
-      message: `Tenant ${name} vacated and Unit ${unitNumber} set to VACANT.`,
+      depositHeld: -(lines.find((l) => l.label === 'Deposit returned')?.amount ?? 0),
+      owedAtMoveOut: (row?.balance ?? 0) - lines.reduce((sum, l) => sum + l.amount, 0),
+      balance: rows.at(-1)?.balance ?? 0,
     };
+  }
+
+  /**
+   * Ends a tenancy on `date` with the reading that closes its last month. A lease that already
+   * ended is being corrected: its closing reading follows the new date.
+   */
+  private async closeLease(
+    tx: Prisma.TransactionClient,
+    lease: Parameters<typeof termsAt>[0] & {
+      id: number;
+      tenantId: number;
+      unitId: number;
+      houseId: number;
+      status: string;
+      terminationDate: Date | null;
+      waterRate: number;
+    },
+    date: Date,
+    finalReading?: number | null,
+  ) {
+    const month = startOfMonth(date);
+    const ended = lease.status !== 'ACTIVE';
+    const closed = await tx.meterReading.findFirst({
+      where: { leaseId: lease.id, billingPeriod: startOfMonth(ended && lease.terminationDate ? lease.terminationDate : date) },
+      orderBy: { id: 'desc' },
+    });
+    if (!ended && termsAt(lease, date).waterRate > 0 && !closed && finalReading == null) {
+      throw new BadRequestException('Enter the final meter reading.');
+    }
+
+    await tx.lease.update({ where: { id: lease.id }, data: { status: 'TERMINATED', terminationDate: date } });
+    if (!ended) {
+      await tx.tenant.update({ where: { id: lease.tenantId }, data: { state: 'FORMER' } });
+      await tx.unit.update({ where: { id: lease.unitId }, data: { state: false } });
+    }
+    if (closed && ended) {
+      await tx.meterReading.update({
+        where: { id: closed.id },
+        data: { currentReading: finalReading != null ? Number(finalReading) : closed.currentReading, readOn: date, billingPeriod: month },
+      });
+    } else if (!closed && finalReading != null) {
+      await tx.meterReading.create({
+        data: {
+          currentReading: Number(finalReading),
+          readOn: date,
+          billingPeriod: month,
+          unitId: lease.unitId,
+          houseId: lease.houseId,
+          leaseId: lease.id,
+          tenantId: lease.tenantId,
+        },
+      });
+    }
   }
 
   /** Moves a tenant to a vacant unit in the same property, carrying their balance across. A preview saves nothing. */
@@ -891,29 +990,7 @@ export class TenantService {
       }
 
       const terms = termsAt(old, movedOn);
-      const month = startOfMonth(movedOn);
-      const closed = await tx.meterReading.findFirst({ where: { leaseId: old.id, billingPeriod: month } });
-      if (terms.waterRate > 0 && !closed && body.finalReading == null) {
-        throw new BadRequestException('Enter the final meter reading for the old unit.');
-      }
-
-      // Close the old tenancy the way vacating does, with its last water reading.
-      await tx.lease.update({ where: { id: old.id }, data: { status: 'TERMINATED', terminationDate: movedOn } });
-      await tx.tenant.update({ where: { id: tenantId }, data: { state: 'FORMER' } });
-      await tx.unit.update({ where: { id: old.unitId }, data: { state: false } });
-      if (!closed && body.finalReading != null) {
-        await tx.meterReading.create({
-          data: {
-            currentReading: Number(body.finalReading),
-            readOn: movedOn,
-            billingPeriod: month,
-            unitId: old.unitId,
-            houseId: old.houseId,
-            leaseId: old.id,
-            tenantId,
-          },
-        });
-      }
+      await this.closeLease(tx, old, movedOn, body.finalReading);
 
       const { tenant } = old;
       await this.createTenant(

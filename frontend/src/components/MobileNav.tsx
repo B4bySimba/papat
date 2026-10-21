@@ -16,6 +16,7 @@ import {
   Plus,
   Receipt,
   UserRoundPlus,
+  UserRoundX,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -150,6 +151,16 @@ export default function MobileNav(props: MobileNavProps) {
                 </button>
               ))}
             </div>
+            <Link
+              href="/pastTenants"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2.5 rounded-xl border bg-card p-2.5 text-sm font-medium shadow-xs transition-colors active:bg-muted"
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+                <UserRoundX className="h-4 w-4" />
+              </span>
+              Past Tenants
+            </Link>
           </div>
         </DrawerContent>
       </Drawer>

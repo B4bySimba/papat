@@ -1,6 +1,6 @@
 "use client";
 import type React from "react";
-import { useState, useCallback, useEffect } from "react";
+import { Fragment, useState, useCallback, useEffect } from "react";
 import type { ServerTable } from "@/hooks/use-server-table";
 import {
   Table,
@@ -63,7 +63,8 @@ import { RowSheet } from "./rowSheet";
 
 export type DataTableProps<T> = {
   data: T[];
-  onDelete: (id: string) => void;
+  /** Without this or `onEditClick` the rows have no actions menu. */
+  onDelete?: (id: string) => void;
   onRowClick?: (item: T) => void;
   columns: {
     key: keyof T;
@@ -90,6 +91,8 @@ export type DataTableProps<T> = {
   renderMobileRow?: (item: T, context: { grouped: boolean }) => React.ReactNode;
   /** Phones: head runs of rows sharing this column, while the list is in its default order or sorted by it. */
   mobileGroupBy?: { key: keyof T; label: (value: any) => React.ReactNode };
+  /** Also head the groups on the wide table. */
+  groupWide?: boolean;
   /** `data` is one page from the server; search, filters, sort and paging go to it instead of running here. */
   server?: ServerTable<T>;
 };
@@ -113,6 +116,7 @@ export function DataTable<T extends { id: string }>({
   mobileCard,
   renderMobileRow,
   mobileGroupBy,
+  groupWide,
   server,
 }: DataTableProps<T>) {
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -225,7 +229,7 @@ export function DataTable<T extends { id: string }>({
 
   const handleDelete = useCallback(
     (id: string) => {
-      onDelete(id);
+      onDelete?.(id);
     },
     [onDelete]
   );
@@ -287,7 +291,8 @@ export function DataTable<T extends { id: string }>({
     column.render ? column.render(item[column.key], item) : String(item[column.key]);
   const columnFor = (key?: keyof T) => columns.find((column) => column.key === key);
 
-  const renderActions = (item: T) => (
+  const hasActions = !!(onDelete || onEditClick);
+  const renderActions = (item: T) => hasActions && (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="cursor-pointer rounded-full text-muted-foreground hover:text-foreground">
@@ -531,35 +536,51 @@ export function DataTable<T extends { id: string }>({
                   </div>
                 </TableHead>
               ))}
-              <TableHead className="h-11 w-12 px-4 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                <span className="sr-only">Actions</span>
-              </TableHead>
+              {hasActions && (
+                <TableHead className="h-11 w-12 px-4 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <span className="sr-only">Actions</span>
+                </TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedData.length > 0 ? (
-              paginatedData.map((item) => (
-                <TableRow
-                  key={item.id}
-                  onClick={() => onRowClick?.(item)}
-                  className={onRowClick ? "cursor-pointer hover:bg-muted/60" : ""}
-                >
-                  {columns.map((column) => (
-                    <TableCell key={column.key as string} className="px-4 py-3">
-                      {renderCell(column, item)}
-                    </TableCell>
-                  ))}
-                  <TableCell
-                    className="px-4 py-2 text-right w-12"
-                    onClick={(e) => e.stopPropagation()}
+              paginatedData.map((item, i) => (
+                <Fragment key={item.id}>
+                  {groupWide && grouped && mobileGroupBy &&
+                    (i === 0 || String(paginatedData[i - 1][mobileGroupBy.key]) !== String(item[mobileGroupBy.key])) && (
+                      <TableRow className="hover:bg-transparent">
+                        <TableCell
+                          colSpan={columns.length + (hasActions ? 1 : 0)}
+                          className="bg-muted/30 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                        >
+                          {mobileGroupBy.label(item[mobileGroupBy.key])}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  <TableRow
+                    onClick={() => onRowClick?.(item)}
+                    className={onRowClick ? "cursor-pointer hover:bg-muted/60" : ""}
                   >
-                    {renderActions(item)}
-                  </TableCell>
-                </TableRow>
+                    {columns.map((column) => (
+                      <TableCell key={column.key as string} className="px-4 py-3">
+                        {renderCell(column, item)}
+                      </TableCell>
+                    ))}
+                    {hasActions && (
+                      <TableCell
+                        className="px-4 py-2 text-right w-12"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {renderActions(item)}
+                      </TableCell>
+                    )}
+                  </TableRow>
+                </Fragment>
               ))
             ) : (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={columns.length + 1}>{emptyState}</TableCell>
+                <TableCell colSpan={columns.length + (hasActions ? 1 : 0)}>{emptyState}</TableCell>
               </TableRow>
             )}
           </TableBody>

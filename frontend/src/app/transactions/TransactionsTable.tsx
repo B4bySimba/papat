@@ -32,9 +32,9 @@ const tints = [
   "bg-rose-100 text-rose-700",
   "bg-indigo-100 text-indigo-700",
 ];
-const tintFor = (name: string) => tints[[...name].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 0) % tints.length];
+export const tintFor = (name: string) => tints[[...name].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 0) % tints.length];
 
-const initials = (name: string) =>
+export const initials = (name: string) =>
   name
     .split(/\s+/)
     .filter((word) => /^[a-z0-9]/i.test(word))

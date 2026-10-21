@@ -26,8 +26,8 @@ export default function PastTenantsToggle({ checked }: { checked: boolean }) {
       </div>
       <p className="text-xs text-muted-foreground">
         {checked
-          ? "Past tenants stay in the totals after moving out, with no new charges: what they still owe and anything they pay later."
-          : "A tenant stops counting once they move out. Turn on to include past tenants' numbers."}
+          ? "Past tenants are included: the months they lived there and anything after they left (late payments, deposit refunds)."
+          : "Only current tenants are counted. Turn on to include past tenants' numbers."}
       </p>
     </div>
   );

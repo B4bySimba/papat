@@ -232,6 +232,23 @@ export class MeterReadingService {
     return { lease, billingPeriod, isMeterReset, status: 'suggested' };
   }
 
+  /**
+   * Whoever lived in the unit during `month` (the newest if two overlap), so a reading typed late
+   * still bills its own tenant. A tenant who left that month and already has its reading is skipped.
+   */
+  private leaseForMonth(unitId: number, month: Date) {
+    const end = new Date(month.getFullYear(), month.getMonth() + 1, 1);
+    return prisma.lease.findFirst({
+      where: {
+        unitId,
+        startDate: { lt: end },
+        OR: [{ terminationDate: null }, { terminationDate: { gte: month } }],
+        NOT: { terminationDate: { not: null, lt: end }, meterReading: { some: { billingPeriod: month } } },
+      },
+      orderBy: { startDate: 'desc' },
+    });
+  }
+
   async suggestPeriod(unitIdHash: string, readOnStr: string, currentReading?: string) {
     const unitId = this.hashidservice.decode(unitIdHash);
     const readOn = new Date(readOnStr);
@@ -245,7 +262,7 @@ export class MeterReadingService {
   }
 
   /**
-   * Creates readings, attaching them to the lease/tenant active on that date.
+   * Creates readings, attaching each to the tenant who lived there in its month (an opening reading: on that date).
    * The month a reading closes (`billingPeriod`) is required, except for an
    * opening reading. Sequential (not $transaction) because reset detection can
    * depend on readings created earlier in the same batch.
@@ -274,8 +291,8 @@ export class MeterReadingService {
       const currentReading = Number(r.currentReading);
 
       const resolved = await this.resolveBillingContext(unitId, readOn, currentReading);
-      const lease = resolved.lease;
       const billingPeriod = r.billingPeriod ? parseMonth(r.billingPeriod) : null;
+      const lease = billingPeriod ? await this.leaseForMonth(unitId, billingPeriod) : resolved.lease;
       const isMeterReset = r.isMeterReset ?? resolved.isMeterReset;
 
       const row = await prisma.$transaction(async (tx) => {

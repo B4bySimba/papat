@@ -12,10 +12,12 @@ import { CommonModule } from './common/common.module';
 import { PingController } from './ping/ping.controller';
 import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
+import { SearchController } from './search/search.controller';
+import { SearchService } from './search/search.service';
 
 @Module({
   imports: [HouseModule, LandlordModule, UnitModule, TenantModule, MeterReadingModule, PaymentModule, CommonModule, UserModule, AuthModule],
-  controllers: [AppController, PingController],
-  providers: [AppService, HashidService],
+  controllers: [AppController, PingController, SearchController],
+  providers: [AppService, HashidService, SearchService],
 })
 export class AppModule {}

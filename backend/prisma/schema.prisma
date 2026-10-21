@@ -125,6 +125,10 @@ model Lease {
   onEntryMeterReading Float
   status              Lstate         @default(ACTIVE)
   terminationDate     DateTime?
+  moveOutReason       String?
+  depositExpenses     Float?
+  depositExpensesNote String?
+  depositRefund       Float?
   rentRate            Float
   deposit             Float?
   waterRate           Float

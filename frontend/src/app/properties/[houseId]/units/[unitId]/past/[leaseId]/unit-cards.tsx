@@ -6,14 +6,12 @@ import { Button } from "@/components/ui/button";
 import {
   User,
   Receipt,
-  MoreHorizontal,
   Edit,
   PersonStanding,
   ClipboardList,
-  MessageCircle,
-  MoveRight,
-  Trash2,
   ArrowRight,
+  HandCoins,
+  UserRoundX,
 } from "lucide-react";
 import {
   Sheet,
@@ -33,17 +31,16 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
-import { DateInput } from "@/components/DateInput";
 import { Label } from "@/components/ui/label";
 import StatCard from "@/components/StatCard";
 import Link from "next/link";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 import { Textarea } from "@/components/ui/textarea";
 import { LedgerModal } from "@/components/charts/LedgerModular";
+import VacateTenantSheet from "@/components/tenant/VacateTenantSheet";
+import { LogPaymentFloating } from "@/components/forms/log-payment-floating";
 
 interface Props {
   unitId: string;
@@ -64,13 +61,8 @@ export default function UnitCards({
   refreshTenant,
   onUpdateTenant,
 }: Props) {
-  const router = useRouter();
   const [editMode, setEditMode] = useState(false);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [ledgerData, setLedgerData] = useState<any[]>([]);
-
-  const [deleting, setDeleting] = useState(false);
 
   const [billsSheetOpen, setBillsSheetOpen] = useState(false);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
@@ -87,11 +79,24 @@ export default function UnitCards({
   };
 
   const [form, setForm] = useState(initialForm);
-  const [terminateSheetOpen, setTerminateSheetOpen] = useState(false);
-  const [terminationDate, setTerminationDate] = useState("");
-  const [terminationReason, setTerminationReason] = useState("");
-  const [terminating, setTerminating] = useState(false);
+  const [moveOutOpen, setMoveOutOpen] = useState(false);
+  const [vacateOpen, setVacateOpen] = useState(false);
+  const [payOpen, setPayOpen] = useState(false);
   const [ledgerOpen, setLedgerOpen] = useState(false);
+
+  const moveOut = tenant.moveOut;
+  const movedOnText = moveOut.date.split("-").reverse().join("/");
+  const balanceText =
+    moveOut.balance > 0
+      ? `Owes KES ${moveOut.balance.toLocaleString()}`
+      : moveOut.balance < 0
+        ? `In credit KES ${(-moveOut.balance).toLocaleString()}`
+        : "Settled";
+  const reload = () =>
+    fetch(`/api/tenant/pastTenant/${tenant.leaseId}`)
+      .then((res) => res.json())
+      .then((json) => json?.data?.moveOut && onUpdateTenant(json))
+      .catch(() => {});
 
   const [editingArrears, setEditingArrears] = useState(false);
   const [arrearsValue, setArrearsValue] = useState(tenant.arrearsbf || 0);
@@ -244,19 +249,6 @@ export default function UnitCards({
                 : "View tenant and unit information."}
             </SheetDescription>
           </SheetHeader>
-
-          {!editMode && (
-            <div className="flex justify-end mb-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setEditMode(true)}
-              >
-                <Edit className="w-4 h-4 mr-2" />
-                Edit
-              </Button>
-            </div>
-          )}
 
           <div className="flex-1 overflow-y-auto pr-2">
             <div className="grid gap-6 text-sm ">
@@ -522,14 +514,6 @@ export default function UnitCards({
                       <span className="text-foreground font-medium">
                         KES {arrearsValue.toLocaleString()}
                       </span>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="w-6 h-6"
-                        onClick={() => setEditingArrears(true)}
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
                     </div>
                   </div>
                 ) : (
@@ -597,15 +581,15 @@ export default function UnitCards({
         </SheetContent>
       </Sheet>
 
-      {/* ⚙️ Actions */}
-      <Sheet>
+      {/* Move-out */}
+      <Sheet open={moveOutOpen} onOpenChange={setMoveOutOpen}>
         <SheetTrigger asChild>
-          <div onClick={() => {}}>
+          <div>
             <StatCard
-              title="Actions"
-              value="Manage"
-              icon={MoreHorizontal}
-              subtext="Click to view actions"
+              title="Move-out"
+              value={moveOut.movedToUnit ? "Moved units" : balanceText}
+              icon={UserRoundX}
+              subtext={`Moved out ${movedOnText}`}
               className="cursor-pointer transition hover:-translate-y-0.5 hover:shadow-md active:scale-[0.99]"
             />
           </div>
@@ -616,145 +600,61 @@ export default function UnitCards({
           className="w-full sm:w-[500px] flex flex-col p-4 sm:p-6"
         >
           <SheetHeader className="mb-4">
-            <SheetTitle className="text-2xl">Tenant Actions</SheetTitle>
+            <SheetTitle className="text-2xl">Move-out</SheetTitle>
             <SheetDescription>
-              Perform actions related to this tenant.
+              What happened when {tenant.tenant.name} left. Personal details stay as they were.
             </SheetDescription>
           </SheetHeader>
 
-          <div className="flex flex-col gap-3">
-            <Button
-              variant="default"
-              onClick={() => setLedgerOpen(true)}
-              className="justify-start cursor-pointer"
-            >
+          <div className="flex-1 overflow-y-auto pr-2">
+            <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-3 text-sm">
+              <dt className="text-muted-foreground">Moved out</dt>
+              <dd className="text-right font-medium">{movedOnText}</dd>
+              {moveOut.movedToUnit && (
+                <>
+                  <dt className="text-muted-foreground">Moved to</dt>
+                  <dd className="text-right font-medium">Unit {moveOut.movedToUnit}</dd>
+                </>
+              )}
+              <dt className="text-muted-foreground">Reason</dt>
+              <dd className="text-right font-medium">{moveOut.reason || "-"}</dd>
+              <dt className="text-muted-foreground">Final meter reading</dt>
+              <dd className="text-right font-medium">{moveOut.finalReading ?? "-"}</dd>
+              <dt className="text-muted-foreground">Lease code</dt>
+              <dd className="text-right font-medium">{tenant.leaseCode}</dd>
+              {!moveOut.movedToUnit && (
+                <>
+                  <dt className="text-muted-foreground">Deposit held</dt>
+                  <dd className="text-right font-medium">KES {moveOut.depositHeld.toLocaleString()}</dd>
+                  <dt className="text-muted-foreground">
+                    Used for expenses{moveOut.depositExpensesNote ? ` (${moveOut.depositExpensesNote})` : ""}
+                  </dt>
+                  <dd className="text-right font-medium">KES {(moveOut.depositExpenses ?? 0).toLocaleString()}</dd>
+                  <dt className="text-muted-foreground">Refunded to tenant</dt>
+                  <dd className="text-right font-medium">KES {(moveOut.depositRefund ?? 0).toLocaleString()}</dd>
+                  <dt className="font-medium">Balance now</dt>
+                  <dd className="text-right font-semibold">{balanceText}</dd>
+                </>
+              )}
+            </dl>
+          </div>
+
+          <SheetFooter className="mt-4 border-t pt-4 flex-col gap-2 sm:flex-row sm:justify-end">
+            <Button variant="outline" onClick={() => setLedgerOpen(true)}>
               <ClipboardList className="w-4 h-4 mr-2" />
               View Ledger
             </Button>
-
-            <Button
-              variant="outline"
-              onClick={() => console.log("Send Message")}
-              className="justify-start cursor-pointer"
-            >
-              <MessageCircle className="w-4 h-4 mr-2" />
-              Send Message
+            {!moveOut.movedToUnit && (
+              <Button variant="outline" onClick={() => setVacateOpen(true)}>
+                <Edit className="w-4 h-4 mr-2" />
+                Edit move-out
+              </Button>
+            )}
+            <Button onClick={() => setPayOpen(true)}>
+              <HandCoins className="w-4 h-4 mr-2" />
+              Record payment
             </Button>
-
-            {/* <Button
-              variant="outline"
-              onClick={() => setMoveSheetOpen(true)}
-              className="justify-start cursor-pointer"
-            >
-              <MoveRight className="w-4 h-4 mr-2" />
-              Move Tenant to Another Unit
-            </Button> */}
-
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setEditMode(true);
-                setTenantSheetOpen(true);
-              }}
-              className="justify-start cursor-pointer"
-            >
-              <Edit className="w-4 h-4 mr-2" />
-              Edit Tenant Details
-            </Button>
-
-            {/* <Button
-              variant="destructive"
-              onClick={() => setTerminateSheetOpen(true)}
-              className="justify-start cursor-pointer"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Terminate Lease
-            </Button> */}
-
-            <AlertDialog
-              open={deleteConfirmOpen}
-              onOpenChange={setDeleteConfirmOpen}
-            >
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="cursor-pointer justify-start"
-                >
-                  <Trash2 className="mr-1 h-4 w-4" />
-                  Delete
-                </Button>
-              </AlertDialogTrigger>
-
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>
-                    Delete Tenant: {tenant?.tenant?.name}?
-                  </AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will permanently delete all data for{" "}
-                    <strong>{tenant?.tenant?.name}</strong>. This action cannot
-                    be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-
-                <AlertDialogFooter>
-                  <AlertDialogCancel
-                    disabled={deleting}
-                    className="cursor-pointer"
-                  >
-                    Cancel
-                  </AlertDialogCancel>
-
-                  <AlertDialogAction
-                    disabled={deleting}
-                    className="bg-destructive text-white hover:bg-destructive/90 cursor-pointer"
-                    onClick={async () => {
-                      setDeleting(true);
-                      setDeleteError(null);
-                      try {
-                        const res = await fetch(
-                          `/api/tenant/delete/${tenant.tenant.id}`,
-                          {
-                            method: "DELETE",
-                            headers: {
-                              "Content-Type": "application/json",
-                            },
-                          }
-                        );
-
-                        if (!res.ok) {
-                          const text = await res.text();
-                          throw new Error(text || "Failed to delete tenant");
-                        }
-
-                        toast.success(
-                          `Tenant "${tenant?.tenant?.name}" deleted successfully`
-                        );
-                        setTenantSheetOpen(false); // Close tenant sheet if open
-                        setDeleteConfirmOpen(false);
-
-                        setTimeout(() => {
-                          router.push(`/properties/${tenant.houseId}/units`);
-                        }, 1000);
-                      } catch (err) {
-                        console.error("Error deleting tenant:", err);
-                        toast.error(
-                          (err as Error).message || "Failed to delete tenant"
-                        );
-                      } finally {
-                        setDeleting(false);
-                      }
-                    }}
-                  >
-                    {deleting
-                      ? "Deleting..."
-                      : `Yes, delete ${tenant?.tenant?.name}`}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
+          </SheetFooter>
         </SheetContent>
       </Sheet>
       {/* Discard Changes Dialog */}
@@ -784,85 +684,24 @@ export default function UnitCards({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <Sheet open={terminateSheetOpen} onOpenChange={setTerminateSheetOpen}>
-        <SheetContent
-          side="right"
-          className="w-full sm:w-[500px] p-4 sm:p-6 flex flex-col"
-        >
-          <SheetHeader className="mb-4">
-            <SheetTitle>Terminate Lease</SheetTitle>
-            <SheetDescription>
-              Please enter the termination date and optional reason.
-            </SheetDescription>
-          </SheetHeader>
+      <VacateTenantSheet
+        open={vacateOpen}
+        onOpenChange={setVacateOpen}
+        tenantId={tenant.tenant.id}
+        waterBilled={tenant.water_bill > 0}
+        initial={moveOut}
+        onDone={() => window.location.reload()}
+      />
 
-          <div className="space-y-4 flex-1 overflow-auto pr-2">
-            <div>
-              <Label htmlFor="terminationDate">Termination Date</Label>
-              <DateInput
-                id="terminationDate"
-                value={terminationDate}
-                onChange={setTerminationDate}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="terminationReason">Reason (optional)</Label>
-              <Textarea
-                id="terminationReason"
-                value={terminationReason}
-                onChange={(e) => setTerminationReason(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <SheetFooter className="mt-6 border-t pt-4">
-            <Button
-              disabled={!terminationDate || terminating}
-              onClick={async () => {
-                setTerminating(true);
-                try {
-                  const res = await fetch(
-                    `/api/tenant/vacate/${tenant.tenant.id}`,
-                    {
-                      method: "PATCH",
-                      headers: {
-                        "Content-Type": "application/json",
-                      },
-                      body: JSON.stringify({
-                        terminationDate,
-                        reason: terminationReason,
-                      }),
-                    }
-                  );
-
-                  if (!res.ok) {
-                    const msg = await res.text();
-                    throw new Error(msg || "Failed to terminate lease");
-                  }
-
-                  toast.success("Lease terminated successfully.");
-                  setTerminateSheetOpen(false);
-                  setTenantSheetOpen(false);
-                  onUpdateTenant({ message: "Unit is Vacant" });
-                } catch (err) {
-                  toast.error((err as Error).message);
-                } finally {
-                  setTerminating(false);
-                }
-              }}
-            >
-              {terminating ? "Submitting..." : "Confirm Termination"}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setTerminateSheetOpen(false)}
-            >
-              Cancel
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+      {payOpen && (
+        <LogPaymentFloating
+          leaseCode={tenant.leaseCode}
+          onClose={() => {
+            setPayOpen(false);
+            reload();
+          }}
+        />
+      )}
 
       <LedgerModal
         name={tenant.tenant.name}

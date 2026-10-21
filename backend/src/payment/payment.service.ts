@@ -455,7 +455,7 @@ export class PaymentService {
       const leaseCode = (createPaymentDto.lease as any).connect.code;
 
       const lease = await prisma.lease.findFirst({
-        where: { code: leaseCode, status: 'ACTIVE' },
+        where: { code: leaseCode },
         select: { id: true, tenantId: true, houseId: true, unitId: true },
       });
 
@@ -2180,7 +2180,7 @@ export class PaymentService {
       where: includePastTenantsData ? { houseId } : { houseId, status: 'ACTIVE' },
       select: { id: true, rentRate: true, startDate: true, unit: { select: { number: true, id: true } } },
     });
-    return { leases, ledgers: await this.ledgerService.ledgersFor(leases.map((l) => l.id)) };
+    return { leases, ledgers: await this.ledgerService.ledgersFor(leases.map((l) => l.id), includePastTenantsData) };
   }
 
   async getTenantLevelSummaryV2(leaseCode: string) {
@@ -2188,10 +2188,9 @@ export class PaymentService {
   }
 
   async getHouseLevelSummaryV2(houseId: number, includePastTenants = false) {
-    // Every lease, past and present. Filtering by status made a property's whole
-    // history change retroactively whenever a tenant vacated.
+    // Past tenants count only with the switch on.
     const leases = await prisma.lease.findMany({
-      where: { houseId },
+      where: includePastTenants ? { houseId } : { houseId, status: 'ACTIVE' },
       select: { id: true },
     });
     if (!leases.length) return { years: [], summary: {}, houseId, houseName: '' };
@@ -2202,7 +2201,7 @@ export class PaymentService {
   /** The house chart's month split by tenancy: same leases, same ledgers, so the rows add up to the bar. */
   async getHouseMonthUnitsV2(houseId: number, year: number, month: string, includePastTenants = false) {
     const leases = await prisma.lease.findMany({
-      where: { houseId },
+      where: includePastTenants ? { houseId } : { houseId, status: 'ACTIVE' },
       select: { id: true, status: true, unit: { select: { number: true } }, tenant: { select: { name: true } } },
     });
     const ledgers = await this.ledgerService.ledgersFor(leases.map((l) => l.id), includePastTenants);
@@ -2236,6 +2235,7 @@ export class PaymentService {
         // One snapshot for the fingerprint and the rows, so the key names exactly what was read.
         const key = dayKey() + (await this.ledgerService.inputsFingerprint(tx));
         const leases = await tx.lease.findMany({
+          where: includePastTenants ? {} : { status: 'ACTIVE' },
           select: { id: true },
         });
         const ledgers = await this.ledgerService.ledgersFor(leases.map((l) => l.id), includePastTenants, tx);
