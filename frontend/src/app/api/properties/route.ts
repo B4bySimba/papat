@@ -1,3 +1,4 @@
+import { backendFetch } from "@/lib/backend";
 import { NextRequest, NextResponse } from "next/server";
 
 
@@ -14,7 +15,7 @@ export async function POST(req: NextRequest) {
   const sanitized = sanitize(body);
 
   try {
-    const response = await fetch(
+    const response = await backendFetch(
       process.env.BACKEND_API_URL + "/house/createProperty",
       {
         method: "POST",

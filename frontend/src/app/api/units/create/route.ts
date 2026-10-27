@@ -1,10 +1,11 @@
+import { backendFetch } from "@/lib/backend";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    const res = await fetch(`${process.env.BACKEND_API_URL}/unit/createUnit`, {
+    const res = await backendFetch(`${process.env.BACKEND_API_URL}/unit/createUnit`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

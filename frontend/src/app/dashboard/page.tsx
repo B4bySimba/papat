@@ -6,7 +6,7 @@ import MaintenanceRequests from "./maintenance-requests";
 import FutureDatedPayments from "@/components/FutureDatedPayments";
 import { SkeletonChart } from "@/components/skeleton/chart";
 import SkeletonTabs from "@/components/skeleton/tabs";
-import { fetchFutureDated, fetchSummary } from "@/lib/summary";
+import { fetchFutureDated, fetchSummary } from "@/lib/backend";
 
 export default async function DashboardPage({
   searchParams,
@@ -44,6 +44,6 @@ async function FutureDated() {
 
 async function Chart({ pastTenants }: { pastTenants: boolean }) {
   // Every year at once: switching year is then a local filter, not another round trip.
-  const { years, summary } = await fetchSummary(`/payment/summary${pastTenants ? "?includePastTenantsData=true" : ""}`);
+  const { years, summary } = (await fetchSummary(`/payment/summary${pastTenants ? "?includePastTenantsData=true" : ""}`))!;
   return <DashboardClient years={years} summary={summary} pastTenants={pastTenants} />;
 }

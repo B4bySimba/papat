@@ -17,16 +17,17 @@ import {
 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { navItems } from "./Sidebar";
+import { useVisible } from "./Sidebar";
 
+/** Each is missing when the signed-in user may not do it. */
 export interface QuickActions {
-  onGenerateReport: () => void;
-  onGenerateInvoice: () => void;
-  onAddProperty: () => void;
-  onAddUnit: () => void;
-  onAddTenant: () => void;
-  onLogPayment: () => void;
-  onAddMeterReading: () => void;
+  onGenerateReport?: () => void;
+  onGenerateInvoice?: () => void;
+  onAddProperty?: () => void;
+  onAddUnit?: () => void;
+  onAddTenant?: () => void;
+  onLogPayment?: () => void;
+  onAddMeterReading?: () => void;
 }
 
 type Hit = { id: string; label: string; detail: string; href: string };
@@ -50,6 +51,7 @@ export default function GlobalSearch({
   actions: QuickActions;
 }) {
   const router = useRouter();
+  const visible = useVisible();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Results | null>(null);
 
@@ -86,8 +88,8 @@ export default function GlobalSearch({
     { label: "Add Property", icon: HousePlus, run: actions.onAddProperty },
     { label: "Reports", icon: Clipboard, run: actions.onGenerateReport },
     { label: "Invoices", icon: Receipt, run: actions.onGenerateInvoice },
-  ].filter((a) => matches(a.label));
-  const pages = navItems.filter((p) => matches(p.label));
+  ].filter((a): a is typeof a & { run: () => void } => !!a.run && matches(a.label));
+  const pages = visible.navItems.filter((p) => matches(p.label));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

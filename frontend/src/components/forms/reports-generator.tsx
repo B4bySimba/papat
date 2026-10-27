@@ -155,12 +155,12 @@ const MONTHS = [
 const YEARLY_REPORTS = ["yearly-report", "tenant-yearly"];
 const MONTHLY_REPORTS = ["monthly-report", "tenant-monthly"];
 
-export function ReportsGenerator({ onClose }: { onClose: () => void }) {
+export function ReportsGenerator({ onClose, houseId }: { onClose: () => void; houseId?: string }) {
   const [selectedReportType, setSelectedReportType] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("financial");
+  const [selectedCategory, setSelectedCategory] = useState(houseId ? "property" : "financial");
   const [isGenerating, setIsGenerating] = useState(false);
   const [filters, setFilters] = useState<ReportFilters>({
-    properties: [],
+    properties: houseId ? [houseId] : [],
     units: [],
     reportFormat: "pdf",
     selectedYear: CURRENT_YEAR.toString(),

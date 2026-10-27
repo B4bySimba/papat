@@ -1,3 +1,4 @@
+import { backendFetch } from "@/lib/backend";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
@@ -14,7 +15,7 @@ export async function GET(req: Request) {
     const query = new URLSearchParams({ year, month });
     if (url.searchParams.get("pastTenants") === "1") query.set("includePastTenantsData", "true");
 
-    const backendRes = await fetch(
+    const backendRes = await backendFetch(
       `${process.env.BACKEND_API_URL}/payment/${houseId}/summary/units?${query}`,
       { cache: "no-store" }
     );

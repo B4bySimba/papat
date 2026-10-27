@@ -1,10 +1,11 @@
+import { backendFetch } from "@/lib/backend";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function PATCH(req: NextRequest) {
   try {
     const { houseId, payload } = await req.json();
 
-    const backendRes = await fetch(
+    const backendRes = await backendFetch(
       `${process.env.BACKEND_API_URL}/house/editHouse/${houseId}`,
       {
         method: "PATCH",

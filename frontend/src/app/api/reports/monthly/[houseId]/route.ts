@@ -1,3 +1,4 @@
+import { backendFetch } from "@/lib/backend";
 // src/app/api/reports/monthly/[houseId]/route.ts
 import { NextResponse } from "next/server";
 
@@ -46,7 +47,7 @@ export async function GET(
 
     console.log("Backend URL:", backendUrl.toString()); // Debug log
 
-    const response = await fetch(backendUrl.toString(), {
+    const response = await backendFetch(backendUrl.toString(), {
       headers: {
         "Content-Type": "application/json",
       },

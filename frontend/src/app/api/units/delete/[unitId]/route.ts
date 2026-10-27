@@ -1,3 +1,4 @@
+import { backendFetch } from "@/lib/backend";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function DELETE(
@@ -7,7 +8,7 @@ export async function DELETE(
   const { unitId } = await params;
 
   try {
-    const res = await fetch(
+    const res = await backendFetch(
       `${process.env.BACKEND_API_URL}/unit/deleteUnit/${unitId}`,
       {
         method: "DELETE",

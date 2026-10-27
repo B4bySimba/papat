@@ -4,20 +4,6 @@ export interface Summary {
   summary: Record<string, Record<string, any>>;
 }
 
-/** Server-side only. Fetches a summary straight from the backend, no proxy hop. */
-export async function fetchSummary(path: string): Promise<Summary> {
-  const res = await fetch(`${process.env.BACKEND_API_URL}${path}`, { cache: "no-store" });
-  if (!res.ok) throw new Error(`Backend returned ${res.status} for ${path}`);
-  return res.json();
-}
-
-/** Server-side only. Payments typed with a date after today, optionally for one lease. */
-export async function fetchFutureDated(leaseCode?: string) {
-  const query = leaseCode ? `?leaseCode=${encodeURIComponent(leaseCode)}` : "";
-  const res = await fetch(`${process.env.BACKEND_API_URL}/payment/future-dated${query}`, { cache: "no-store" });
-  return res.ok ? res.json() : [];
-}
-
 /** One year flattened into the `{month, ...totals}` rows the charts and ledgers consume. */
 export function yearRows(summary: Summary["summary"], year: string) {
   return Object.entries(summary?.[year] ?? {}).map(([month, values]: [string, any]) => ({

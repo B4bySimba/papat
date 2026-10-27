@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import prisma from 'lib/db';
 import { Prisma } from 'generated/prisma/client';
+import { forgetWritesAfterThis } from 'src/audit/capture';
 import {
   computeLeaseLedger,
   endOfLocalDay,
@@ -15,6 +16,7 @@ const ROLLBACK = Symbol('preview');
 /** Runs `write` in one transaction. A preview rolls it back but still returns what `write` returned. */
 export async function previewable<T>(preview: boolean, write: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
   let result!: T;
+  const forgetPreview = forgetWritesAfterThis();
   try {
     return await prisma.$transaction(
       async (tx) => {
@@ -25,7 +27,10 @@ export async function previewable<T>(preview: boolean, write: (tx: Prisma.Transa
       { timeout: 60_000 },
     );
   } catch (e) {
-    if (e === ROLLBACK) return result;
+    if (e === ROLLBACK) {
+      forgetPreview();
+      return result;
+    }
     throw e;
   }
 }

@@ -1,3 +1,4 @@
+import { backendFetch } from "@/lib/backend";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
@@ -5,7 +6,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { id, ...updates } = body;
 
-    const res = await fetch(
+    const res = await backendFetch(
       `${process.env.BACKEND_API_URL}/payment/editPayment/${id}`,
       {
         method: "PATCH",

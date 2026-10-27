@@ -4,6 +4,8 @@ import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import { Toaster } from "@/components/ui/sonner";
 import { GlobalUnitEditSheet } from "@/components/GlobalUnitSheetEditor";
+import { AccessProvider } from "@/components/AccessProvider";
+import { fetchMe } from "@/lib/backend";
 
 export const metadata: Metadata = {
   title: "Papat Properties Limited",
@@ -17,7 +19,7 @@ export const viewport: Viewport = {
   themeColor: "#ffffff",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -25,9 +27,11 @@ export default function RootLayout({
   return (
     <html lang="en" className="overflow-x-hidden h-full">
       <body className="h-full w-full overflow-hidden bg-gray-50 text-gray-900">
-        <ClientAppLayout>{children}</ClientAppLayout>
-        <Toaster richColors mobileOffset={{ bottom: 88 }} />
-        <GlobalUnitEditSheet />
+        <AccessProvider me={await fetchMe()}>
+          <ClientAppLayout>{children}</ClientAppLayout>
+          <Toaster richColors mobileOffset={{ bottom: 88 }} />
+          <GlobalUnitEditSheet />
+        </AccessProvider>
       </body>
     </html>
   );

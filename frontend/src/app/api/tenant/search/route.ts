@@ -1,10 +1,11 @@
+import { backendFetch } from "@/lib/backend";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
   const search = req.nextUrl.searchParams.get("search") || "";
 
   try {
-    const backendRes = await fetch(
+    const backendRes = await backendFetch(
       `${process.env.BACKEND_API_URL}/tenant/search?query=${search}`,
       { cache: "no-store" }
     );

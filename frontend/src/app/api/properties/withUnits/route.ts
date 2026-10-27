@@ -1,3 +1,4 @@
+import { backendFetch } from "@/lib/backend";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -10,7 +11,7 @@ export async function GET() {
       );
     }
 
-    const res = await fetch(`${apiUrl}/house/withUnits`);
+    const res = await backendFetch(`${apiUrl}/house/withUnits`);
 
     if (!res.ok) {
       return NextResponse.json(

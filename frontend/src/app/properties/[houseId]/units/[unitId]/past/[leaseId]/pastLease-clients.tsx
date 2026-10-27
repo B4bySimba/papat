@@ -1,5 +1,6 @@
 "use client";
 
+import { useAccess } from "@/components/AccessProvider";
 import DashboardCards from "@/app/dashboard/dashboard-cards";
 import ViewTabs from "@/components/ViewTabs";
 import { useEffect, useState } from "react";
@@ -50,6 +51,8 @@ export default function PastLeaseClient({
 
   const params = useParams();
   const houseId = params.houseId as string;
+  const { can } = useAccess();
+  const money = can("payments.view", houseId);
   const [view, setView] = useState<ViewType>("barChart");
   const [year, setYear] = useState(String(new Date().getFullYear()));
   const [chartData, setChartData] = useState<any[]>([]);
@@ -70,7 +73,7 @@ export default function PastLeaseClient({
   const leaseCode = tenant?.data?.leaseCode;
 
   useEffect(() => {
-    if (leaseCode) {
+    if (leaseCode && money) {
       // Load chart data
       setLoading(true);
       fetch(`/api/payment/lease-summary?leaseCode=${leaseCode}&year=${year}`)
@@ -104,7 +107,7 @@ export default function PastLeaseClient({
           toast.error("Failed to load ledger data");
         });
     }
-  }, [year, leaseCode]);
+  }, [year, leaseCode, money]);
 
   const isVacant = tenant === null || tenant?.message === "Unit is Vacant";
   const isNotFound = tenant.message === "Unit does not exist";
@@ -166,7 +169,7 @@ export default function PastLeaseClient({
           There is no active tenant in this unit at the moment.
         </p>
         <div className="mt-6 grid w-full max-w-sm grid-cols-1 gap-2.5 pb-8 sm:flex sm:max-w-none sm:flex-wrap sm:justify-center sm:gap-4">
-          <Button
+          {can("tenants.add", houseId) && <Button
             variant="default"
             className="h-10 text-sm min-w-[150px] cursor-pointer"
             onClick={() =>
@@ -178,7 +181,7 @@ export default function PastLeaseClient({
             }
           >
             Add Tenant
-          </Button>
+          </Button>}
 
           {showModal.show && (
             <AddTenantModal
@@ -195,7 +198,7 @@ export default function PastLeaseClient({
             />
           )}
 
-          <Button
+          {can("pastTenants.view", houseId) && <Button
             variant="outline"
             className="h-10 text-sm min-w-[150px] bg-background cursor-pointer"
             onClick={() => {
@@ -203,7 +206,7 @@ export default function PastLeaseClient({
             }}
           >
             View Past Tenants
-          </Button>
+          </Button>}
           <Button
             variant="outline"
             className="h-10 text-sm min-w-[150px] bg-background cursor-pointer"
@@ -213,7 +216,7 @@ export default function PastLeaseClient({
           >
             Back to Units Listing
           </Button>
-          <Button
+          {can("units.edit", houseId) && <Button
             variant="outline"
             className="h-10 text-sm min-w-[150px] bg-background cursor-pointer"
             onClick={() => {
@@ -274,8 +277,8 @@ export default function PastLeaseClient({
             }}
           >
             Edit Unit
-          </Button>
-          <AlertDialog>
+          </Button>}
+          {can("units.delete", houseId) && <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button
                 variant="destructive"
@@ -324,7 +327,7 @@ export default function PastLeaseClient({
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
-          </AlertDialog>
+          </AlertDialog>}
         </div>
       </div>
     );
@@ -344,6 +347,7 @@ export default function PastLeaseClient({
         onUpdateTenant={(updated) => setTenant(updated)}
       />
 
+      {money && <>
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <ViewTabs
           value={view}
@@ -385,8 +389,9 @@ export default function PastLeaseClient({
           )}
         </>
       )}
+      </>}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
-        <RecentPayments leaseCode={leaseCode} />
+        {money && <RecentPayments leaseCode={leaseCode} />}
         <MaintenanceRequests />
       </div>
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useAccess } from "@/components/AccessProvider";
 import { useEffect, useState } from "react";
 import { DataCardTable } from "@/components/tables/miniTable";
 import { ColumnDef } from "@tanstack/react-table";
@@ -62,6 +63,7 @@ export const paymentColumns: ColumnDef<Payment>[] = [
 export default function RecentPayments({ leaseCode }: RecentPaymentsProps) {
   const params = useParams();
   const houseId = params.houseId as string;
+  const { can } = useAccess();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -96,7 +98,7 @@ export default function RecentPayments({ leaseCode }: RecentPaymentsProps) {
         viewAllLabel="See All Payments"
         viewAllHref="/transactions"
         buttonLabel="Add Payment"
-        onButtonClick={() => setShowAddForm(true)}
+        onButtonClick={can("payments.add", houseId) ? () => setShowAddForm(true) : undefined}
         loading={loading}
         emptyLabel="No Payments Found"
       />

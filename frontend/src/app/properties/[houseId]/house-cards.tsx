@@ -1,5 +1,6 @@
 "use client";
 
+import { useAccess } from "@/components/AccessProvider";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Building2, DoorOpen, DoorClosed, Home, Edit, Receipt } from "lucide-react";
@@ -49,6 +50,8 @@ export default function HouseCards({
 }: Props) {
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [ratesOpen, setRatesOpen] = useState(false);
+  const { can } = useAccess();
+  const seesLandlord = can("landlord.view", houseId);
 
   // const [sheetOpen, setSheetOpen] = useState(false);
   // const [editMode, setEditMode] = useState(false);
@@ -151,8 +154,8 @@ export default function HouseCards({
               title="House Info"
               value={house.name}
               icon={Building2}
-              subtext={`LR No: ${house.lr_number ?? "N/A"} | Landlord: ${
-                house.landlord?.name ?? "N/A"
+              subtext={`LR No: ${house.lr_number ?? "N/A"}${
+                seesLandlord ? ` | Landlord: ${house.landlord?.name ?? "N/A"}` : ""
               }`}
               className="cursor-pointer transition hover:-translate-y-0.5 hover:shadow-md active:scale-[0.99]"
             />
@@ -174,7 +177,7 @@ export default function HouseCards({
 
           {!editMode && (
             <div className="flex flex-wrap justify-end gap-2 mb-4">
-              <Button
+              {can("rates.change", houseId) && <Button
                 variant="outline"
                 size="sm"
                 onClick={() => {
@@ -185,8 +188,8 @@ export default function HouseCards({
               >
                 <Receipt />
                 Change charges for all units
-              </Button>
-              <Button
+              </Button>}
+              {can("house.edit", houseId) && <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setEditMode(true)}
@@ -194,7 +197,7 @@ export default function HouseCards({
               >
                 <Edit />
                 Edit
-              </Button>
+              </Button>}
             </div>
           )}
 
@@ -271,7 +274,7 @@ export default function HouseCards({
               </div>
 
               {/* Landlord Details - only in view mode */}
-              {!editMode && (
+              {!editMode && seesLandlord && (
                 <div className="space-y-4 mt-6">
                   <h3 className="text-base font-semibold text-foreground">
                     Landlord Details

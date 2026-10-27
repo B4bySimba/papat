@@ -6,7 +6,9 @@ import { SidebarProvider } from "./ui/sidebar";
 import AppSidebar from "./Sidebar";
 import Header from "./Header";
 import MobileNav from "./MobileNav";
+import PageNav from "./PageNav";
 import dynamic from "next/dynamic";
+import { useAccess } from "./AccessProvider";
 
 // Loaded on open, not on first paint: the invoice generator alone pulls in html2canvas and jsPDF.
 const AddPropertyWizard = dynamic(() => import("./forms/add-property-wizard").then((m) => m.AddPropertyWizard));
@@ -17,7 +19,7 @@ const AddMeterReadingInline = dynamic(() => import("./forms/add-meter-readings-i
 const ReportsGenerator = dynamic(() => import("./forms/reports-generator").then((m) => m.ReportsGenerator));
 const InvoiceGenerator = dynamic(() => import("./forms/invoice-generator").then((m) => m.InvoiceGenerator));
 
-const hiddenRoutes = ["/login", "/register", "/forgot-password"];
+const hiddenRoutes = ["/login", "/register", "/forgot-password", "/change-password"];
 
 export default function ClientAppLayout({
   children,
@@ -26,8 +28,11 @@ export default function ClientAppLayout({
 }) {
   const pathname = usePathname();
   const hideLayout = hiddenRoutes.includes(pathname);
+  const { can } = useAccess();
+  const allow = (right: string, fn: () => void) => (can(right) ? fn : undefined);
 
   const [ShowGenerateReport, setShowGenerateReport] = useState(false);
+  const [reportHouseId, setReportHouseId] = useState<string>();
   const [ShowGenerateInvoice, setShowGenerateInvoice] = useState(false);
 
   const [showAddProperty, setShowAddProperty] = useState(false);
@@ -40,14 +45,18 @@ export default function ClientAppLayout({
     return <>{children}</>;
   }
 
+  // Only what the signed-in user may do; every menu leaves out the rest.
   const actions = {
-    onGenerateReport: () => setShowGenerateReport(true),
-    onGenerateInvoice: () => setShowGenerateInvoice(true),
-    onAddProperty: () => setShowAddProperty(true),
-    onAddUnit: () => setShowAddUnit(true),
-    onAddTenant: () => setShowAddTenant(true),
-    onLogPayment: () => setLogPayment(true),
-    onAddMeterReading: () => setShowAddMeterReading(true),
+    onGenerateReport: allow("reports.view", () => {
+      setReportHouseId(undefined);
+      setShowGenerateReport(true);
+    }),
+    onGenerateInvoice: allow("reports.view", () => setShowGenerateInvoice(true)),
+    onAddProperty: allow("property.add", () => setShowAddProperty(true)),
+    onAddUnit: allow("units.add", () => setShowAddUnit(true)),
+    onAddTenant: allow("tenants.add", () => setShowAddTenant(true)),
+    onLogPayment: allow("payments.add", () => setLogPayment(true)),
+    onAddMeterReading: allow("readings.add", () => setShowAddMeterReading(true)),
   };
 
   return (
@@ -57,14 +66,22 @@ export default function ClientAppLayout({
         <div className="flex min-w-0 flex-1 flex-col h-full">
           <Header {...actions} />
           <main className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-3 pt-4 pb-28 sm:px-6 sm:pt-6 md:pb-8">
-            <div className="mx-auto w-full max-w-[1600px]">{children}</div>
+            <div className="mx-auto w-full max-w-[1600px]">
+              <PageNav
+                onPropertyReport={(houseId) => {
+                  setReportHouseId(houseId);
+                  setShowGenerateReport(true);
+                }}
+              />
+              {children}
+            </div>
           </main>
         </div>
       </div>
       <MobileNav {...actions} />
 
       {ShowGenerateReport && (
-        <ReportsGenerator onClose={() => setShowGenerateReport(false)} />
+        <ReportsGenerator houseId={reportHouseId} onClose={() => setShowGenerateReport(false)} />
       )}
       {ShowGenerateInvoice && (
         <InvoiceGenerator onClose={() => setShowGenerateInvoice(false)} />

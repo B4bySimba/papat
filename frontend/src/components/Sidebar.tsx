@@ -10,9 +10,6 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsUpDown,
-  Sparkles,
-  BadgeCheck,
-  Bell,
   LogOut,
   Gauge,
   Wrench,
@@ -30,10 +27,13 @@ import {
   Droplets,
   Notebook,
   NotebookTabs,
+  KeyRound,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useAccess } from "./AccessProvider";
+import type { QuickActions } from "./GlobalSearch";
 import {
   Sidebar,
   SidebarContent,
@@ -51,45 +51,40 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Avatar, AvatarFallback } from "./ui/avatar";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "./ui/collapsible";
 
-interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
-  onGenerateReport: () => void;
-  onGenerateInvoice: () => void;
+type AppSidebarProps = React.ComponentProps<typeof Sidebar> & QuickActions;
 
-  onAddProperty: () => void;
-  onAddUnit: () => void;
-  onAddTenant: () => void;
-  onLogPayment: () => void;
-  onAddMeterReading: () => void;
-}
-
-export const navItems = [
+const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Properties", href: "/properties", icon: Building },
-  { label: "Transactions", href: "/transactions", icon: CreditCard },
-  { label: "Meter Readings", href: "/meterReadings", icon: Gauge },
+  { label: "Properties", href: "/properties", icon: Building, right: "house.view" },
+  { label: "Transactions", href: "/transactions", icon: CreditCard, right: "payments.view" },
+  { label: "Meter Readings", href: "/meterReadings", icon: Gauge, right: "readings.view" },
   { label: "Maintenances", href: "/maintenances", icon: Wrench },
   { label: "Bills", href: "/bills", icon: NotebookTabs },
-  { label: "Past Tenants", href: "/pastTenants", icon: UserRoundX },
+  { label: "Past Tenants", href: "/pastTenants", icon: UserRoundX, right: "pastTenants.view" },
 ];
 
-const user = {
-  name: "shadcn",
-  email: "m@example.com",
-  avatar: "https://github.com/shadcn.png",
-};
+/** The pages the signed-in user may open. */
+export function useVisible() {
+  const { can, isAdmin } = useAccess();
+  return {
+    navItems: navItems.filter((item) => !item.right || can(item.right)),
+    others: isAdmin ? [{ label: "Admin", href: "/admin", icon: Zap }] : [],
+  };
+}
+
+const ROLE_LABEL = { ROOT: "Root", ADMIN: "Admin", AGENT: "Agent" };
 
 export default function AppSidebar({
   onAddProperty,
@@ -102,29 +97,30 @@ export default function AppSidebar({
   ...props
 }: AppSidebarProps) {
   const pathname = usePathname();
+  const { me } = useAccess();
+  const { navItems, others } = useVisible();
+  const user = { name: me?.name || me?.username || "", detail: me ? `${me.username} · ${ROLE_LABEL[me.role]}` : "" };
+  const initials = user.name.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
   const { isMobile, setOpenMobile } = useSidebar();
   const closeOnMobile = () => isMobile && setOpenMobile(false);
-  const run = (fn: () => void) => () => {
-    closeOnMobile();
-    fn();
-  };
+  // Actions the user may not do arrive without a handler and are left out.
+  const usable = (items: { label: string; fn?: () => void; icon: typeof Clipboard }[]) =>
+    items.flatMap(({ fn, ...item }) =>
+      fn ? [{ ...item, onClick: () => { closeOnMobile(); fn(); } }] : [],
+    );
 
-  const documents = [
-    { label: "Reports", onClick: run(onGenerateReport), icon: Clipboard },
-    { label: "Invoices", onClick: run(onGenerateInvoice), icon: Receipt },
-  ];
+  const documents = usable([
+    { label: "Reports", fn: onGenerateReport, icon: Clipboard },
+    { label: "Invoices", fn: onGenerateInvoice, icon: Receipt },
+  ]);
 
-  const actions = [
-    { label: "Add Property", onClick: run(onAddProperty), icon: HousePlus },
-    { label: "Add Unit", onClick: run(onAddUnit), icon: PackagePlus },
-    { label: "Add Tenant", onClick: run(onAddTenant), icon: UserRoundPlus },
-    { label: "Log Payment", onClick: run(onLogPayment), icon: HandCoins },
-    { label: "Add Meter Reading", onClick: run(onAddMeterReading), icon: Droplets },
-  ];
-
-  const others = [
-    {label: "Admin", href: "/admin", icon: Zap}
-  ]
+  const actions = usable([
+    { label: "Add Property", fn: onAddProperty, icon: HousePlus },
+    { label: "Add Unit", fn: onAddUnit, icon: PackagePlus },
+    { label: "Add Tenant", fn: onAddTenant, icon: UserRoundPlus },
+    { label: "Log Payment", fn: onLogPayment, icon: HandCoins },
+    { label: "Add Meter Reading", fn: onAddMeterReading, icon: Droplets },
+  ]);
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -170,7 +166,7 @@ export default function AppSidebar({
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        <SidebarGroup>
+        {documents.length > 0 && <SidebarGroup>
           <SidebarGroupLabel>Documents</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -187,8 +183,8 @@ export default function AppSidebar({
               ))}
             </SidebarMenu>
           </SidebarGroupContent>
-        </SidebarGroup>
-        <Collapsible defaultOpen className="group/collapsible">
+        </SidebarGroup>}
+        {actions.length > 0 && <Collapsible defaultOpen className="group/collapsible">
           <SidebarGroup>
             <SidebarGroupLabel asChild>
               <CollapsibleTrigger>
@@ -214,8 +210,8 @@ export default function AppSidebar({
               </SidebarGroupContent>
             </CollapsibleContent>
           </SidebarGroup>
-        </Collapsible>
-        <SidebarGroup>
+        </Collapsible>}
+        {others.length > 0 && <SidebarGroup>
           <SidebarGroupLabel>Others</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -244,7 +240,7 @@ export default function AppSidebar({
               })}
             </SidebarMenu>
           </SidebarGroupContent>
-        </SidebarGroup>
+        </SidebarGroup>}
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>
@@ -256,12 +252,11 @@ export default function AppSidebar({
                   className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 >
                   <Avatar className="h-8 w-8 rounded-lg">
-                    <AvatarImage src={user.avatar} alt={user.name} />
-                    <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                    <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
                   </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight">
                     <span className="truncate font-semibold">{user.name}</span>
-                    <span className="truncate text-xs">{user.email}</span>
+                    <span className="truncate text-xs">{user.detail}</span>
                   </div>
                   <ChevronsUpDown className="ml-auto size-4" />
                 </SidebarMenuButton>
@@ -275,39 +270,23 @@ export default function AppSidebar({
                 <DropdownMenuLabel className="p-0 font-normal">
                   <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                     <Avatar className="h-8 w-8 rounded-lg">
-                      <AvatarImage src={user.avatar} alt={user.name} />
-                      <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                      <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
                     </Avatar>
                     <div className="grid flex-1 text-left text-sm leading-tight">
                       <span className="truncate font-semibold">
                         {user.name}
                       </span>
-                      <span className="truncate text-xs">{user.email}</span>
+                      <span className="truncate text-xs">{user.detail}</span>
                     </div>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuGroup>
-                  <DropdownMenuItem>
-                    <Sparkles />
-                    Upgrade to Pro
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuGroup>
-                  <DropdownMenuItem>
-                    <BadgeCheck />
-                    Account
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <CreditCard />
-                    Billing
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Bell />
-                    Notifications
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
+                <DropdownMenuItem asChild>
+                  <Link href="/change-password">
+                    <KeyRound />
+                    Change password
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={async () => {

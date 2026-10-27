@@ -60,7 +60,7 @@ export default function Ledger({ data, year }: LedgerProps) {
       month: entry.month,
       carryForward: entry.carryForward || 0,
       rentCharged: entry.rentCharged || 0,
-      currentCharges: (entry.currentCharges || 0) - (entry.transfer || 0) - sumOf(entry.depositLines),
+      currentCharges: (entry.currentCharges || 0) - (entry.rentCharged || 0) - (entry.waterCharge || 0) - (entry.transfer || 0) - sumOf(entry.depositLines),
       transfer: entry.transfer || 0,
       transferNote: entry.transferNote ?? null,
       depositLines: entry.depositLines || [],

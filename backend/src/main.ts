@@ -1,7 +1,9 @@
 import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import compression from 'compression';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
+import { requestContext } from './auth/access';
 
 // Fail fast if required environment variables are missing
 const REQUIRED_ENV = ['JWT_SECRET', 'DATABASE_URL', 'HASHID_SALT', 'PORT', 'CORS_ORIGINS'];
@@ -25,13 +27,14 @@ if (new Date(2026, 0, 1).getTimezoneOffset() !== -180) {
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.use(compression());
+  app.use(cookieParser());
   app.use((req, res, next) => {
     console.log(`Incoming request: ${req.method} ${req.url}`);
-    console.log('Heade1rs:', req.headers);
-    next();
+    const ip = String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() || req.socket.remoteAddress;
+    requestContext.run({ houseIds: [], changes: [], ip }, next);
   });
   app.enableCors({
-    origin: process.env.CORS_ORIGINS, // preserves current '*' behavior; sourced from env now
+    origin: process.env.CORS_ORIGINS!.split(',').map((o) => o.trim()),
     methods: ['GET,HEAD,PUT,PATCH,POST,DELETE'],
     allowedHeaders: ['content-type'],
     credentials: true,

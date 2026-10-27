@@ -1,6 +1,7 @@
 import UnitPageClient from "./unit-clients";
 import { headers } from "next/headers";
-import { fetchFutureDated, fetchSummary, Summary } from "@/lib/summary";
+import { backendFetch, fetchFutureDated, fetchSummary, pageGuard } from "@/lib/backend";
+import type { Summary } from "@/lib/summary";
 
 interface Props {
   params: { unitId: string };
@@ -13,11 +14,12 @@ export default async function UnitPage({
 }) {
   const { unitId } = await params;
 
-  const res = await fetch(
+  const res = await backendFetch(
     `${process.env.BACKEND_API_URL}/tenant/byUnitId/${unitId}`,
     { cache: "no-store" }
   );
 
+  pageGuard(res);
   if (!res.ok) {
     throw new Error(`Failed to fetch house details (status ${res.status})`);
   }
@@ -27,9 +29,10 @@ export default async function UnitPage({
   // One summary for the whole page: the chart, the ledger and the cards all read it.
   const leaseCode = tenant?.data?.leaseCode;
   const empty: Summary = { years: [], summary: {} };
-  const [{ years, summary }, futurePayments] = leaseCode
+  const [money, futurePayments] = leaseCode
     ? await Promise.all([fetchSummary(`/payment/le/${leaseCode}/summary`), fetchFutureDated(leaseCode)])
     : [empty, []];
+  const { years, summary } = money ?? empty;
 
   return (
     <UnitPageClient

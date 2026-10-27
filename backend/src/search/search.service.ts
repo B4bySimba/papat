@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import prisma from 'lib/db';
 import { HashidService } from 'src/common/hashid/hashid.service';
+import { canAt, currentAccess, inHouses } from 'src/auth/access';
 
 type Hit = { id: string; label: string; detail: string; href: string };
 
@@ -15,6 +16,7 @@ export class SearchService {
     const q = raw?.trim() ?? '';
     if (q.length < 2) return { tenants: [], properties: [], units: [], payments: [] };
     const has = { contains: q, mode: 'insensitive' as const };
+    const scoped = !!currentAccess()?.houses();
     const enc = (id: number) => this.hashid.encode(id);
     const leasePage = (l: { id: number; houseId: number; unitId: number; status: string }) =>
       `/properties/${enc(l.houseId)}/units/${enc(l.unitId)}${l.status === 'ACTIVE' ? '' : `/past/${enc(l.id)}`}`;
@@ -27,6 +29,7 @@ export class SearchService {
             { code: { equals: q, mode: 'insensitive' } },
             { tenant: { OR: [{ name: has }, { contact: has }, { nationId: has }] } },
           ],
+          ...(scoped && { AND: [inHouses('tenants.view'), { OR: [{ status: 'ACTIVE' }, inHouses('pastTenants.view')] }] }),
         },
         orderBy: [{ status: 'asc' }, { startDate: 'desc' }],
         take: TAKE,
@@ -43,13 +46,13 @@ export class SearchService {
         },
       }),
       prisma.house.findMany({
-        where: { OR: [{ name: has }, { address: has }, { lr_number: has }, { landlord: { name: has } }] },
+        where: { OR: [{ name: has }, { address: has }, { lr_number: has }, { landlord: { name: has }, ...inHouses('landlord.view', 'id') }], ...inHouses('house.view', 'id') },
         orderBy: { name: 'asc' },
         take: TAKE,
         select: { id: true, name: true, address: true, landlord: { select: { name: true } } },
       }),
       prisma.unit.findMany({
-        where: { number: { startsWith: q, mode: 'insensitive' } },
+        where: { number: { startsWith: q, mode: 'insensitive' }, ...inHouses('units.view') },
         orderBy: { number: 'asc' },
         take: TAKE,
         select: {
@@ -61,7 +64,11 @@ export class SearchService {
         },
       }),
       prisma.payment.findMany({
-        where: { reference: has, lease: { isNot: null } },
+        where: {
+          reference: has,
+          lease: { isNot: null },
+          ...(scoped && { AND: [inHouses('payments.view'), { OR: [{ lease: { status: 'ACTIVE' } }, inHouses('pastTenants.view')] }] }),
+        },
         orderBy: { date: 'desc' },
         take: TAKE,
         select: {
@@ -91,13 +98,13 @@ export class SearchService {
       properties: houses.map((h) => ({
         id: enc(h.id),
         label: h.name,
-        detail: [h.address, h.landlord?.name].filter(Boolean).join(' · '),
+        detail: [h.address, canAt('landlord.view', h.id) && h.landlord?.name].filter(Boolean).join(' · '),
         href: `/properties/${enc(h.id)}`,
       })),
       units: units.map((u) => ({
         id: enc(u.id),
         label: `Unit ${u.number}`,
-        detail: `${u.house.name} · ${u.lease[0]?.tenant.name ?? 'Vacant'}`,
+        detail: `${u.house.name} · ${!u.lease[0] ? 'Vacant' : canAt('tenants.view', u.houseId) ? u.lease[0].tenant.name : 'Occupied'}`,
         href: `/properties/${enc(u.houseId)}/units/${enc(u.id)}`,
       })),
       payments: payments.map((p) => ({

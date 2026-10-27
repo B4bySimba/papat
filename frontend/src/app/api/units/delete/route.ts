@@ -1,10 +1,11 @@
+import { backendFetch } from "@/lib/backend";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
   try {
     const { id } = await req.json();
 
-    const res = await fetch(
+    const res = await backendFetch(
       `${process.env.BACKEND_API_URL}/unit/deleteUnit/${id}`,
       {
         method: "DELETE",

@@ -1,5 +1,6 @@
 "use client";
 
+import { useAccess } from "@/components/AccessProvider";
 import { useState } from "react";
 import type { Transaction } from "@/lib/transactionSchema";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { RowEditForm } from "@/components/tables/RowEditForm";
 import type { ServerTableState } from "@/hooks/use-server-table";
+import PlaceLink from "@/components/PlaceLink";
 import { CreditCard, Edit, Globe, Landmark, LucideIcon, ScrollText, Smartphone, Wallet } from "lucide-react";
 
 const methodIcons: Record<string, LucideIcon> = {
@@ -61,6 +63,7 @@ type Props = {
 };
 
 export function TransactionsTable({ table, onDelete, onSubmitEdit }: Props) {
+  const { can } = useAccess();
   const [selected, setSelected] = useState<Transaction | null>(null);
   const [mode, setMode] = useState<"view" | "edit">("view");
 
@@ -119,6 +122,7 @@ export function TransactionsTable({ table, onDelete, onSubmitEdit }: Props) {
         columns={columns}
         filters={filters}
         onDelete={onDelete}
+        canAct={(tx, action) => can(`payments.${action}`, tx.houseId)}
         exportFilename="transactions"
         caption="Recent transactions"
         mobileGroupBy={{ key: "date", label: dayHeading }}
@@ -173,10 +177,10 @@ export function TransactionsTable({ table, onDelete, onSubmitEdit }: Props) {
               <strong>Tenant Contact:</strong> {tx.tenantContact}
             </p>
             <p>
-              <strong>Unit:</strong> {tx.unitNumber}
+              <strong>Unit:</strong> <PlaceLink href={`/properties/${tx.houseId}/units/${tx.unitId}`}>{tx.unitNumber}</PlaceLink>
             </p>
             <p>
-              <strong>House:</strong> {tx.houseName}
+              <strong>House:</strong> <PlaceLink href={`/properties/${tx.houseId}`}>{tx.houseName}</PlaceLink>
             </p>
             <p>
               <strong>Date:</strong> {tx.date}
@@ -230,10 +234,10 @@ export function TransactionsTable({ table, onDelete, onSubmitEdit }: Props) {
                   <strong>Tenant Contact:</strong> {selected.tenantContact}
                 </p>
                 <p>
-                  <strong>Unit:</strong> {selected.unitNumber}
+                  <strong>Unit:</strong> <PlaceLink href={`/properties/${selected.houseId}/units/${selected.unitId}`}>{selected.unitNumber}</PlaceLink>
                 </p>
                 <p>
-                  <strong>House:</strong> {selected.houseName}
+                  <strong>House:</strong> <PlaceLink href={`/properties/${selected.houseId}`}>{selected.houseName}</PlaceLink>
                 </p>
                 <p>
                   <strong>Date:</strong> {selected.date}

@@ -1,3 +1,4 @@
+import { backendFetch } from "@/lib/backend";
 import { NextResponse } from "next/server";
 
 export async function GET(
@@ -6,7 +7,7 @@ export async function GET(
 ) {
   const { houseId } = await params
   try {
-    const res = await fetch(
+    const res = await backendFetch(
       `${process.env.BACKEND_API_URL}/house/dets/${houseId}`
     );
 

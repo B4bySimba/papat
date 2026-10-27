@@ -2,6 +2,10 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestj
 import { LandlordService } from './landlord.service';
 import { Prisma } from 'generated/prisma/client';
 import { HashidPipe } from 'src/common/hashid/hashid.pipe';
+import { Need } from 'src/auth/need.decorator';
+import { only } from 'src/common/only';
+
+const LANDLORD_FIELDS = ['name', 'contact', 'nationalId', 'email'] as const;
 
 
 @Controller('landlord')
@@ -10,12 +14,13 @@ export class LandlordController {
 
   //lease
   @Get('by-tenant')
+  @Need('payments.add', 'tenant:query.tenantId')
   getLeaseByTenant(@Query('tenantId', HashidPipe) tenantId: string) {
-    console.log('Decoded tenantId:', tenantId); // � Add this
     return this.landlordService.findActiveByTenant(+tenantId);
   }
 
   @Get('by-unit')
+  @Need('payments.add', 'house:query.houseId', 'unit:query.unitId')
   getLeaseByUnit(
     @Query('houseId', HashidPipe) houseId: number,
     @Query('unitId', HashidPipe) unitId: number,
@@ -24,8 +29,9 @@ export class LandlordController {
   }
 
   @Post()
+  @Need('landlords.manage')
   create(@Body() createLandlordDto: Prisma.LandlordCreateInput) {
-    return this.landlordService.create(createLandlordDto);
+    return this.landlordService.create(only(createLandlordDto, LANDLORD_FIELDS) as Prisma.LandlordCreateInput);
   }
 
   @Get()
@@ -34,6 +40,7 @@ export class LandlordController {
   }
 
   @Get('getAll')
+  @Need('property.add')
   getAll() {
     return this.landlordService.getAll();
   }
@@ -44,11 +51,12 @@ export class LandlordController {
   }
 
   @Patch('editLandlord/:id')
+  @Need('landlords.manage')
   update(
     @Param('id', HashidPipe) id: string,
     @Body() updateLandlordDto: Prisma.LandlordUpdateInput,
   ) {
-    return this.landlordService.update(+id, updateLandlordDto);
+    return this.landlordService.update(+id, only(updateLandlordDto, LANDLORD_FIELDS));
   }
 
   @Delete(':id')

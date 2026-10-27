@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
+import { backendFetch } from "@/lib/backend";
 
 export async function POST() {
   try {
+    // Recorded in the activity log; the cookie is cleared even if the backend can't be reached.
+    await backendFetch(`${process.env.BACKEND_API_URL}/auth/logout`, { method: "POST" }).catch(() => null);
     const response = new NextResponse(
       JSON.stringify({ success: true, message: "Logged out successfully" }),
       {

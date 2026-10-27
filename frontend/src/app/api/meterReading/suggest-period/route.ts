@@ -1,3 +1,4 @@
+import { backendFetch } from "@/lib/backend";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest) {
     backendUrl.searchParams.set("readOn", readOn);
     if (currentReading) backendUrl.searchParams.set("currentReading", currentReading);
 
-    const res = await fetch(backendUrl.toString());
+    const res = await backendFetch(backendUrl.toString());
     if (!res.ok) {
       return NextResponse.json({ error: `Backend returned ${res.status}` }, { status: res.status });
     }

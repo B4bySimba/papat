@@ -1,5 +1,7 @@
 "use client";
 
+import { useAccess } from "@/components/AccessProvider";
+import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -84,6 +86,9 @@ export default function UnitCards({
   const [payOpen, setPayOpen] = useState(false);
   const [ledgerOpen, setLedgerOpen] = useState(false);
 
+  const { houseId } = useParams<{ houseId: string }>();
+  const { can } = useAccess();
+  const money = can("payments.view", houseId);
   const moveOut = tenant.moveOut;
   const movedOnText = moveOut.date.split("-").reverse().join("/");
   const balanceText =
@@ -502,7 +507,7 @@ export default function UnitCards({
               </div>
             </div>
 
-            <div>
+            {money && <div>
               <h3 className="text-base font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
                 Arrears Brought Forward on Entry
               </h3>
@@ -576,7 +581,7 @@ export default function UnitCards({
                   </div>
                 )}
               </div>
-            </div>
+            </div>}
           </div>
         </SheetContent>
       </Sheet>
@@ -587,7 +592,7 @@ export default function UnitCards({
           <div>
             <StatCard
               title="Move-out"
-              value={moveOut.movedToUnit ? "Moved units" : balanceText}
+              value={moveOut.movedToUnit ? "Moved units" : money ? balanceText : "Moved out"}
               icon={UserRoundX}
               subtext={`Moved out ${movedOnText}`}
               className="cursor-pointer transition hover:-translate-y-0.5 hover:shadow-md active:scale-[0.99]"
@@ -622,7 +627,7 @@ export default function UnitCards({
               <dd className="text-right font-medium">{moveOut.finalReading ?? "-"}</dd>
               <dt className="text-muted-foreground">Lease code</dt>
               <dd className="text-right font-medium">{tenant.leaseCode}</dd>
-              {!moveOut.movedToUnit && (
+              {!moveOut.movedToUnit && money && (
                 <>
                   <dt className="text-muted-foreground">Deposit held</dt>
                   <dd className="text-right font-medium">KES {moveOut.depositHeld.toLocaleString()}</dd>
@@ -640,20 +645,20 @@ export default function UnitCards({
           </div>
 
           <SheetFooter className="mt-4 border-t pt-4 flex-col gap-2 sm:flex-row sm:justify-end">
-            <Button variant="outline" onClick={() => setLedgerOpen(true)}>
+            {money && <Button variant="outline" onClick={() => setLedgerOpen(true)}>
               <ClipboardList className="w-4 h-4 mr-2" />
               View Ledger
-            </Button>
-            {!moveOut.movedToUnit && (
+            </Button>}
+            {!moveOut.movedToUnit && can("tenants.vacate", houseId) && (
               <Button variant="outline" onClick={() => setVacateOpen(true)}>
                 <Edit className="w-4 h-4 mr-2" />
                 Edit move-out
               </Button>
             )}
-            <Button onClick={() => setPayOpen(true)}>
+            {can("payments.add", houseId) && <Button onClick={() => setPayOpen(true)}>
               <HandCoins className="w-4 h-4 mr-2" />
               Record payment
-            </Button>
+            </Button>}
           </SheetFooter>
         </SheetContent>
       </Sheet>

@@ -1,3 +1,4 @@
+import { backendFetch } from "@/lib/backend";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
@@ -9,7 +10,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Missing leaseCode" }, { status: 400 });
     }
 
-    const res = await fetch(
+    const res = await backendFetch(
       `${process.env.BACKEND_API_URL}/payment/le/${leaseCode}/summary`
     );
 
@@ -34,7 +35,10 @@ export async function GET(req: Request) {
           year: parseInt(year),
           month,
           carryForward: details.carryForward || 0,
+          rentCharged: details.rentCharged || 0,
           currentCharges: details.currentCharges || 0,
+          transfer: details.transfer || 0,
+          transferNote: details.transferNote ?? null,
           expected: details.expected || 0,
           collected: details.collected || 0,
           balance: details.balance || 0,

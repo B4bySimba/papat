@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 
-const PUBLIC_PATHS = ["/login", "/api"];
+const PUBLIC_PATHS = ["/login", "/api/auth", "/api/logout"];
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -14,24 +14,22 @@ export async function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
-  if (PUBLIC_PATHS.some((path) => pathname.startsWith(path))) {
+  if (PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`))) {
     return NextResponse.next();
   }
 
   const token = req.cookies.get("token")?.value;
+  const refuse = () =>
+    pathname.startsWith("/api/")
+      ? NextResponse.json({ error: "Your session has ended. Please log in again." }, { status: 401 })
+      : NextResponse.redirect(new URL("/login", req.url));
 
-  if (!token) {
-    return NextResponse.redirect(new URL("/login", req.url));
-  }
+  if (!token) return refuse();
 
   try {
-    const { payload } = await jwtVerify(
-      token,
-      new TextEncoder().encode(process.env.JWT_SECRET)
-    );
+    await jwtVerify(token, new TextEncoder().encode(process.env.JWT_SECRET));
     return NextResponse.next();
-  } catch (err) {
-    console.error("JWT invalid:", err);
-    return NextResponse.redirect(new URL("/login", req.url));
+  } catch {
+    return refuse();
   }
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useAccess } from "@/components/AccessProvider";
 import { useMemo, useState } from "react";
 import ViewTabs from "@/components/ViewTabs";
 import YearSelector from "./year-selector";
@@ -13,9 +14,18 @@ type ViewType = "barChart" | "areaChart";
 export default function DashboardClient({ years, summary, pastTenants }: Summary & { pastTenants: boolean }) {
   const [view, setView] = useState<ViewType>("barChart");
   const [year, setYear] = useState(() => defaultYear(years));
+  const { can } = useAccess();
 
   const chartData = useMemo(() => yearRows(summary, year), [summary, year]);
   const hasValidData = hasData(chartData);
+
+  if (!can("payments.view")) {
+    return (
+      <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
+        Money figures appear here for houses where you can see payments. Your houses are under Properties.
+      </p>
+    );
+  }
 
   return (
     <div className="space-y-4">

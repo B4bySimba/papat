@@ -11,7 +11,7 @@ for (const key of REQUIRED_ENV) {
 
 const nextConfig: NextConfig = {
     output: 'standalone',
-    allowedDevOrigins: ['192.168.0.105'],
+    allowedDevOrigins: ['192.168.1.71'],
 };
 
 export default nextConfig;

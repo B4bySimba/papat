@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, DataTableProps } from "@/components/tables/DataTable";
 import { SkeletonPage } from "@/components/skeleton/page";
+import PlaceLink from "@/components/PlaceLink";
 import { initials, tintFor } from "@/app/transactions/TransactionsTable";
 
 type PastTenant = {
@@ -16,21 +17,23 @@ type PastTenant = {
   unitNumber: string;
   moveOutDate: string;
   moveOutMonth: string;
-  deposit: number;
-  balance: number;
-  status: "Owes" | "In credit" | "Settled";
+  /** Null where the user may not see this house's money. */
+  deposit: number | null;
+  balance: number | null;
+  status: "Owes" | "In credit" | "Settled" | null;
 };
 
-const statusOf = (balance: number): PastTenant["status"] =>
-  balance > 0 ? "Owes" : balance < 0 ? "In credit" : "Settled";
+const statusOf = (balance: number | null): PastTenant["status"] =>
+  balance === null ? null : balance > 0 ? "Owes" : balance < 0 ? "In credit" : "Settled";
 
-const tone: Record<PastTenant["status"], string> = {
+const tone: Record<NonNullable<PastTenant["status"]>, string> = {
   Owes: "bg-red-50 text-red-700 ring-red-600/20",
   "In credit": "bg-sky-50 text-sky-700 ring-sky-600/20",
   Settled: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
 };
 
 function BalanceBadge({ item }: { item: PastTenant }) {
+  if (item.status === null || item.balance === null) return null;
   return (
     <Badge className={`border-0 ring-1 ring-inset ${tone[item.status]}`}>
       {item.status}
@@ -82,10 +85,10 @@ export default function PastTenantsPage() {
 
   const columns: DataTableProps<PastTenant>["columns"] = [
     { key: "tenantName", label: "Tenant" },
-    { key: "houseName", label: "Property" },
-    { key: "unitNumber", label: "Unit" },
+    { key: "houseName", label: "Property", render: (value: string, t) => <PlaceLink href={`/properties/${t.houseId}`}>{value}</PlaceLink> },
+    { key: "unitNumber", label: "Unit", render: (value: string, t) => <PlaceLink href={`/properties/${t.houseId}/units/${t.unitId}`}>{value}</PlaceLink> },
     { key: "moveOutDate", label: "Moved out" },
-    { key: "deposit", label: "Deposit", render: (value: number) => `KES ${value.toLocaleString()}` },
+    { key: "deposit", label: "Deposit", render: (value: number | null) => (value === null ? "-" : `KES ${value.toLocaleString()}`) },
     { key: "balance", label: "Balance", render: (_: number, item) => <BalanceBadge item={item} /> },
   ];
 

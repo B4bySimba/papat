@@ -1,8 +1,9 @@
+import { backendFetch } from "@/lib/backend";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
   try {
-    const res = await fetch(`${process.env.BACKEND_API_URL}/meter-reading/getAll${req.nextUrl.search}`, {
+    const res = await backendFetch(`${process.env.BACKEND_API_URL}/meter-reading/getAll${req.nextUrl.search}`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",

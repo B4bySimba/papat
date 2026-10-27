@@ -1,5 +1,6 @@
 "use client";
 
+import { useAccess } from "@/components/AccessProvider";
 import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -109,6 +110,7 @@ export function AddUnitSlideout({
   const [properties, setProperties] = useState<{ id: string; name: string }[]>(
     []
   );
+  const allowed = useAccess().houses("units.add");
   const [loading, setLoading] = useState(false);
   useEffect(() => {
     const fetchProperties = async () => {
@@ -117,9 +119,9 @@ export function AddUnitSlideout({
         const res = await fetch("/api/properties/get");
         const data = await res.json();
 
-        const sorted = data.sort((a: { name: string }, b: { name: string }) =>
-          a.name.localeCompare(b.name)
-        );
+        const sorted = data
+          .filter((h: { id: string }) => !allowed || allowed.has(h.id))
+          .sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name));
 
         setProperties(sorted);
       } catch (error) {

@@ -3,6 +3,11 @@ import { UnitService } from './unit.service';
 import { Prisma } from 'generated/prisma/client';
 import { HashidPipe } from 'src/common/hashid/hashid.pipe';
 import { HashidService } from 'src/common/hashid/hashid.service';
+import { Need } from 'src/auth/need.decorator';
+import { canAt } from 'src/auth/access';
+import { only } from 'src/common/only';
+
+const UNIT_FIELDS = ['number', 'type', 'description', 'rentRate', 'deposit', 'additional', 'additionalCharges'] as const;
 
 
 @Controller('unit')
@@ -14,6 +19,7 @@ export class UnitController {
 
   //for frontend
   @Get('search')
+  @Need('payments.add', 'house:query.houseId')
   searchUnits(
     @Query('search') search?: string,
     @Query('houseId', HashidPipe) houseId?: string,
@@ -22,6 +28,7 @@ export class UnitController {
   }
 
   @Get('waterSearch')
+  @Need('readings.add', 'house:query.houseId')
   searchWaterUnits(
     @Query('search') search?: string,
     @Query('houseId', HashidPipe) houseId?: string,
@@ -33,7 +40,9 @@ export class UnitController {
   }
 
   @Post('createUnit')
-  createUnit(@Body() createUnitDto: any) {
+  @Need('units.add', 'house:body.houseId')
+  createUnit(@Body() body: any) {
+    const createUnitDto: any = only(body, ['houseId', ...UNIT_FIELDS]);
     if (!createUnitDto.houseId) {
       throw new HttpException('houseId is required.', HttpStatus.BAD_REQUEST);
     }
@@ -50,16 +59,21 @@ export class UnitController {
   }
 
   @Get('byHouseId/:id')
-  getUnits(@Param('id', HashidPipe) id: string) {
-    return this.unitService.getUnits(+id);
+  @Need('units.view', 'house:params.id')
+  async getUnits(@Param('id', HashidPipe) id: string) {
+    const units = await this.unitService.getUnits(+id);
+    if (canAt('tenants.view', +id)) return units;
+    return units.map((u) => ({ ...u, leaseId: null, leaseCode: null, tenantName: null, tenantTel: null, moveInDate: null }));
   }
 
   @Get('one/:id')
+  @Need('units.view', 'unit:params.id')
   getOne(@Param('id', HashidPipe) id: string) {
     return this.unitService.getOne(+id);
   }
 
   @Get('names/:id')
+  @Need('units.view', 'house:params.id')
   names(@Param('id', HashidPipe) id: string) {
     return this.unitService.names(+id);
   }
@@ -82,14 +96,16 @@ export class UnitController {
   }
 
   @Patch('editUnit/:id')
+  @Need('units.edit', 'unit:params.id')
   update(
     @Param('id', HashidPipe) id: string,
     @Body() updateUnitDto: Prisma.UnitUpdateInput,
   ) {
-    return this.unitService.update(+id, updateUnitDto);
+    return this.unitService.update(+id, only(updateUnitDto, UNIT_FIELDS));
   }
 
   @Delete('deleteUnit/:id')
+  @Need('units.delete', 'unit:params.id')
   remove(@Param('id', HashidPipe) id: string) {
     return this.unitService.remove(+id);
   }

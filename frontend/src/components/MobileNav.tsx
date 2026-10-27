@@ -19,6 +19,8 @@ import {
   UserRoundX,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAccess } from "./AccessProvider";
+import type { QuickActions } from "./GlobalSearch";
 import {
   Drawer,
   DrawerContent,
@@ -27,27 +29,19 @@ import {
   DrawerTitle,
 } from "./ui/drawer";
 
-interface MobileNavProps {
-  onGenerateReport: () => void;
-  onGenerateInvoice: () => void;
-  onAddProperty: () => void;
-  onAddUnit: () => void;
-  onAddTenant: () => void;
-  onLogPayment: () => void;
-  onAddMeterReading: () => void;
-}
-
-const links = [
+const allLinks = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Properties", href: "/properties", icon: Building },
-  { label: "Transactions", href: "/transactions", icon: CreditCard },
-  { label: "Meters", href: "/meterReadings", icon: Gauge },
+  { label: "Properties", href: "/properties", icon: Building, right: "house.view" },
+  { label: "Transactions", href: "/transactions", icon: CreditCard, right: "payments.view" },
+  { label: "Meters", href: "/meterReadings", icon: Gauge, right: "readings.view" },
 ];
 
 /** Phone-only bottom bar: the main pages plus a "+" sheet with the sidebar's quick actions. */
-export default function MobileNav(props: MobileNavProps) {
+export default function MobileNav(props: QuickActions) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const { can } = useAccess();
+  const links = allLinks.filter((l) => !l.right || can(l.right));
 
   const actions = [
     { label: "Log Payment", icon: HandCoins, onClick: props.onLogPayment, tone: "bg-emerald-50 text-emerald-700" },
@@ -57,11 +51,12 @@ export default function MobileNav(props: MobileNavProps) {
     { label: "Add Property", icon: HousePlus, onClick: props.onAddProperty, tone: "bg-purple-50 text-purple-700" },
     { label: "Reports", icon: Clipboard, onClick: props.onGenerateReport, tone: "bg-rose-50 text-rose-700" },
     { label: "Invoices", icon: Receipt, onClick: props.onGenerateInvoice, tone: "bg-indigo-50 text-indigo-700" },
-  ];
+  ].filter((a): a is typeof a & { onClick: () => void } => !!a.onClick);
 
+  const half = Math.ceil(links.length / 2);
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
-  const renderLink = ({ label, href, icon: Icon }: (typeof links)[number]) => {
+  const renderLink = ({ label, href, icon: Icon }: (typeof allLinks)[number]) => {
     const active = isActive(href);
     return (
       <Link
@@ -92,9 +87,12 @@ export default function MobileNav(props: MobileNavProps) {
         aria-label="Main"
         className="no-print fixed inset-x-0 bottom-0 z-40 border-t bg-background/90 pb-safe backdrop-blur-xl supports-backdrop-filter:bg-background/75 md:hidden"
       >
-        <div className="mx-auto grid max-w-md grid-cols-5 items-end px-1">
-          {links.slice(0, 2).map(renderLink)}
-          <div className="flex justify-center">
+        <div
+          className="mx-auto grid max-w-md items-end px-1"
+          style={{ gridTemplateColumns: `repeat(${links.length + (actions.length ? 1 : 0)}, minmax(0, 1fr))` }}
+        >
+          {links.slice(0, half).map(renderLink)}
+          {actions.length > 0 && <div className="flex justify-center">
             <button
               type="button"
               onClick={() => setOpen(true)}
@@ -103,8 +101,8 @@ export default function MobileNav(props: MobileNavProps) {
             >
               <Plus className="h-6 w-6" strokeWidth={2.5} />
             </button>
-          </div>
-          {links.slice(2).map(renderLink)}
+          </div>}
+          {links.slice(half).map(renderLink)}
         </div>
       </nav>
 

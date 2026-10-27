@@ -5,6 +5,7 @@ import { first, last } from 'rxjs';
 import { HashidService } from 'src/common/hashid/hashid.service';
 import { generateCharges, buildLedger, billingDateFor, sortSummaryMonths, MONTH_NAMES, MonthRow, endOfLocalDay } from './ledger.util';
 import { LedgerService } from './ledger.service';
+import { houseSql, inHouses } from 'src/auth/access';
 import {
   ListQuery,
   containsPattern,
@@ -578,6 +579,8 @@ export class PaymentService {
       conditions.push(
         idEquals(Prisma.sql`"unitId"`, this.hashidService.decode(q.unitId)),
       );
+    const scope = houseSql(Prisma.sql`"houseId"`, 'payments.view');
+    if (scope) conditions.push(scope);
 
     // Dates are stored as UTC and shown in Nairobi time (main.ts refuses any other zone).
     const matching = Prisma.sql`SELECT * FROM (
@@ -623,12 +626,12 @@ export class PaymentService {
   async getAllFilters() {
     const [houses, units] = await Promise.all([
       prisma.house.findMany({
-        where: { payment: { some: {} } },
+        where: { payment: { some: {} }, ...inHouses('payments.view', 'id') },
         select: { id: true, name: true },
         orderBy: { name: 'asc' },
       }),
       prisma.unit.findMany({
-        where: { payment: { some: {} } },
+        where: { payment: { some: {} }, ...inHouses('payments.view') },
         select: { id: true, number: true },
         orderBy: { number: 'asc' },
       }),
@@ -648,7 +651,7 @@ export class PaymentService {
   /** Payments typed with a date after today: kept as entered, listed so someone can check the date. */
   async futureDated(leaseCode?: string) {
     const payments = await prisma.payment.findMany({
-      where: { date: { gt: endOfLocalDay(new Date()) }, ...(leaseCode ? { lease: { code: leaseCode } } : {}) },
+      where: { date: { gt: endOfLocalDay(new Date()) }, ...(leaseCode ? { lease: { code: leaseCode } } : {}), ...inHouses('payments.view') },
       orderBy: { date: 'asc' },
       select: {
         amount: true,
@@ -674,6 +677,7 @@ export class PaymentService {
 
   async recent() {
     const payments = await prisma.payment.findMany({
+      where: inHouses('payments.view'),
       take: 5, // Limit to the latest 5
       orderBy: { date: 'desc' },
       select: {
@@ -2222,29 +2226,34 @@ export class PaymentService {
   }
 
   /** The last manager summary per past-tenants setting, keyed by the day and the rows it was built from. */
-  private readonly managerSummaries = new Map<boolean, { key: string; summary: ReturnType<PaymentService['aggregate']> }>();
+  private readonly managerSummaries = new Map<string, { key: string; summary: ReturnType<PaymentService['aggregate']> }>();
 
-  async getManagerLevelSummaryV2(includePastTenants = false) {
+  /** Over the houses given (every house when null), with past tenants only from `pastHouses`. */
+  async getManagerLevelSummaryV2(includePastTenants = false, houses: number[] | null = null, pastHouses: number[] | null = null) {
     // The same rows on the same day give the same summary, so the last one is reused until a row changes.
     const dayKey = () => `${endOfLocalDay(new Date()).getTime()}#`;
-    const last = this.managerSummaries.get(includePastTenants);
+    const scope = `${includePastTenants}|${houses?.join(',') ?? '*'}|${includePastTenants ? (pastHouses?.join(',') ?? '*') : ''}`;
+    const where: Prisma.LeaseWhereInput = {
+      ...(houses && { houseId: { in: houses } }),
+      ...(!includePastTenants
+        ? { status: 'ACTIVE' }
+        : pastHouses && { OR: [{ status: 'ACTIVE' }, { houseId: { in: pastHouses } }] }),
+    };
+    const last = this.managerSummaries.get(scope);
     if (last && last.key === dayKey() + (await this.ledgerService.inputsFingerprint())) return last.summary;
 
     const { key, summary } = await prisma.$transaction(
       async (tx) => {
         // One snapshot for the fingerprint and the rows, so the key names exactly what was read.
         const key = dayKey() + (await this.ledgerService.inputsFingerprint(tx));
-        const leases = await tx.lease.findMany({
-          where: includePastTenants ? {} : { status: 'ACTIVE' },
-          select: { id: true },
-        });
+        const leases = await tx.lease.findMany({ where, select: { id: true } });
         const ledgers = await this.ledgerService.ledgersFor(leases.map((l) => l.id), includePastTenants, tx);
         return { key, summary: this.aggregate(ledgers.values()) };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, timeout: 60_000 },
     );
     // Built across midnight: the rows may be for either day, so don't keep it.
-    if (key.startsWith(dayKey())) this.managerSummaries.set(includePastTenants, { key, summary });
+    if (key.startsWith(dayKey())) this.managerSummaries.set(scope, { key, summary });
     return summary;
   }
 

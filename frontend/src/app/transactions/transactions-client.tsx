@@ -1,4 +1,5 @@
 "use client";
+import { useAccess } from "@/components/AccessProvider";
 import { useState } from "react";
 import type { Transaction } from "@/lib/transactionSchema";
 import { TransactionsTable } from "./TransactionsTable";
@@ -12,6 +13,7 @@ import { useServerTable } from "@/hooks/use-server-table";
 export default function TransactionsPage() {
   const table = useServerTable<Transaction>("/api/payment/transactions");
   const [showAddForm, setShowAddForm] = useState(false);
+  const { can } = useAccess();
 
   const handleDelete = async (id: string) => {
     try {
@@ -87,13 +89,13 @@ export default function TransactionsPage() {
     <div className="w-full">
       <div className="mb-5 flex items-center justify-between gap-3 sm:mb-8">
         <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Transactions</h1>
-        <Button
+        {can("payments.add") && <Button
           onClick={() => setShowAddForm(true)}
           className="ml-auto shrink-0 bg-purple-600 hover:bg-purple-700 text-white border-purple-600 hover:border-purple-700 cursor-pointer shadow-sm shadow-purple-600/20"
         >
           <Plus strokeWidth={3} />
           Add Payment
-        </Button>
+        </Button>}
       </div>
       <TransactionsTable
         table={table}

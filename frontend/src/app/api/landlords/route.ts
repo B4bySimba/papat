@@ -1,8 +1,9 @@
+import { backendFetch } from "@/lib/backend";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
   try {
-    const res = await fetch(`${process.env.BACKEND_API_URL}/landlord/getAll`);
+    const res = await backendFetch(`${process.env.BACKEND_API_URL}/landlord/getAll`);
     if (!res.ok) {
       const error = await res.json();
       return NextResponse.json({ error }, { status: res.status });

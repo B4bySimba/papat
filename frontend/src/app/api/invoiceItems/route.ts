@@ -1,3 +1,4 @@
+import { backendFetch } from "@/lib/backend";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
@@ -10,7 +11,7 @@ export async function GET(req: Request) {
 
   try {
     const backendUrl = `${process.env.BACKEND_API_URL}/payment/le/${leaseCode}/summary`;
-    const resp = await fetch(backendUrl);
+    const resp = await backendFetch(backendUrl);
 
     if (!resp.ok) {
       return NextResponse.json(

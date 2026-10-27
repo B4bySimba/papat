@@ -58,7 +58,7 @@ export function LedgerModal({ name, data, open, onOpenChange }: LedgerModalProps
       month: entry.month,
       carryForward: entry.carryForward || 0,
       rentCharged: entry.rentCharged || 0,
-      currentCharges: (entry.currentCharges || 0) - (entry.transfer || 0),
+      currentCharges: (entry.currentCharges || 0) - (entry.rentCharged || 0) - (entry.waterCharge || 0) - (entry.transfer || 0),
       transfer: entry.transfer || 0,
       transferNote: entry.transferNote ?? null,
       expected: entry.expected,

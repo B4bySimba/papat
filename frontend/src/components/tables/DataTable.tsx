@@ -85,6 +85,8 @@ export type DataTableProps<T> = {
   renderRowDetail?: (item: T) => React.ReactNode;
   detailSheetTitle?: string;
   onEditClick?: (item: T) => void;
+  /** Whether a row offers an action at all (e.g. the user's rights at that row's house). */
+  canAct?: (item: T, action: "edit" | "delete") => boolean;
   /** Which columns lead each card on phones; the rest fill the card's grid unless `details` is false. */
   mobileCard?: { title: keyof T; subtitle?: keyof T; value?: keyof T; details?: boolean };
   /** Phones: draw each row as a slim list item instead of a card. */
@@ -113,6 +115,7 @@ export function DataTable<T extends { id: string }>({
   renderRowDetail,
   detailSheetTitle = "Details",
   onEditClick,
+  canAct,
   mobileCard,
   renderMobileRow,
   mobileGroupBy,
@@ -292,7 +295,9 @@ export function DataTable<T extends { id: string }>({
   const columnFor = (key?: keyof T) => columns.find((column) => column.key === key);
 
   const hasActions = !!(onDelete || onEditClick);
-  const renderActions = (item: T) => hasActions && (
+  const allowed = (item: T, action: "edit" | "delete") =>
+    !!(action === "edit" ? onEditClick : onDelete) && (canAct?.(item, action) ?? true);
+  const renderActions = (item: T) => (allowed(item, "edit") || allowed(item, "delete")) && (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="cursor-pointer rounded-full text-muted-foreground hover:text-foreground">
@@ -301,22 +306,22 @@ export function DataTable<T extends { id: string }>({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem
+        {allowed(item, "edit") && <DropdownMenuItem
           onClick={() => {
             onEditClick?.(item); // trigger sheet-based edit
             setEditingId(item.id); // keep internal ID tracking if needed
           }}
         >
           <Edit className="mr-2 h-4 w-4" /> Edit
-        </DropdownMenuItem>
+        </DropdownMenuItem>}
 
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
+        {allowed(item, "edit") && allowed(item, "delete") && <DropdownMenuSeparator />}
+        {allowed(item, "delete") && <DropdownMenuItem
           onClick={() => setPendingDeleteId(item.id)}
           className="text-red-600"
         >
           <Trash2 className="mr-2 h-4 w-4" /> Delete
-        </DropdownMenuItem>
+        </DropdownMenuItem>}
       </DropdownMenuContent>
     </DropdownMenu>
   );

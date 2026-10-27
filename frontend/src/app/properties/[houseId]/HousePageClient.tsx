@@ -1,5 +1,6 @@
 "use client";
 
+import { useAccess } from "@/components/AccessProvider";
 import DashboardCards from "@/app/dashboard/dashboard-cards";
 import ViewTabs from "@/components/ViewTabs";
 import { useMemo, useState } from "react";
@@ -45,6 +46,8 @@ export default function HousePageClient({
   pastTenants,
 }: Props) {
   const [house, setHouse] = useState<any>(initialHouse);
+  const { can } = useAccess();
+  const money = can("payments.view", houseId);
   const [view, setView] = useState<ViewType>("barChart");
   const [year, setYear] = useState(() => defaultYear(years));
   const [unitsMonth, setUnitsMonth] = useState<string | null>(null);
@@ -74,7 +77,7 @@ export default function HousePageClient({
       <div className="flex justify-between items-center mb-2">
         <h2 className="text-xl font-semibold">House Overview</h2>
         <div className="flex gap-2">
-          <Button
+          {can("house.edit", houseId) && <Button
             variant="outline"
             size="sm"
             onClick={handleEdit}
@@ -82,8 +85,8 @@ export default function HousePageClient({
           >
             <Edit />
             Edit
-          </Button>
-          <AlertDialog
+          </Button>}
+          {can("house.delete", houseId) && <AlertDialog
             open={deleteConfirmOpen}
             onOpenChange={setDeleteConfirmOpen}
           >
@@ -141,7 +144,7 @@ export default function HousePageClient({
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
-          </AlertDialog>
+          </AlertDialog>}
         </div>
       </div>
 
@@ -155,6 +158,7 @@ export default function HousePageClient({
         setSheetOpen={setSheetOpen}
       />
 
+      {money && <>
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <ViewTabs
           value={view}
@@ -183,9 +187,10 @@ export default function HousePageClient({
       {view === "areaChart" && (
         <HouseArea data={chartData} year={year} noData={!hasValidData} />
       )}
+      </>}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
-        <RecentPayments />
+        {money && <RecentPayments />}
         <MaintenanceRequests />
       </div>
     </div>

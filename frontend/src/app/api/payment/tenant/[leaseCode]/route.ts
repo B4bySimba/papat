@@ -1,3 +1,4 @@
+import { backendFetch } from "@/lib/backend";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
@@ -6,7 +7,7 @@ export async function GET(
 ) {
   const { leaseCode } = await params;
   try {
-    const res = await fetch(
+    const res = await backendFetch(
       `${process.env.BACKEND_API_URL}/payment/get/tenant/${leaseCode}`,
       {
         method: "GET",

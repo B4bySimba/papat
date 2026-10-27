@@ -44,6 +44,7 @@ model House {
   maintenance         maintenance[]
   MeterReading       MeterReading[]
   rates               RateChange[]
+  access              HouseAccess[]
 
   @@index([landlordId])
 }
@@ -303,23 +304,53 @@ enum Lstate {
 }
 
 model User {
-  id        Int   @id @default(autoincrement())
-  email     String   @unique
-  name      String?
-  password  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  role         Role         @default(SUBORDINATE)
-  permissions Permission[] @relation("UserPermissions")
+  id                 Int           @id @default(autoincrement())
+  username           String        @unique
+  email              String?       @unique
+  name               String?
+  password           String
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  role               Role          @default(AGENT)
+  rights             String[]      @default([])
+  mustChangePassword Boolean       @default(true)
+  suspended          Boolean       @default(false)
+  sessionVersion     Int           @default(0)
+  failedLogins       Int           @default(0)
+  lockedUntil        DateTime?
+  lastLoginAt        DateTime?
+  houses             HouseAccess[]
 }
 
-model Permission {
-  id    String   @id @default(cuid())
-  name  String   @unique
-  users User[]   @relation("UserPermissions")
+model HouseAccess {
+  userId  Int
+  houseId Int
+  rights  String[]
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  house   House    @relation(fields: [houseId], references: [id], onDelete: Cascade)
+
+  @@id([userId, houseId])
+  @@index([houseId])
+}
+
+/// Append-only: a trigger refuses UPDATE and DELETE.
+model AuditLog {
+  id       Int      @id @default(autoincrement())
+  at       DateTime @default(now())
+  userId   Int?
+  username String
+  action   String
+  subject  String?
+  houseIds Int[]
+  changes  Json?
+  ip       String?
+
+  @@index([at])
+  @@index([userId, at])
 }
 
 enum Role {
+  ROOT
   ADMIN
-  SUBORDINATE
+  AGENT
 }

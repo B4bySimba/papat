@@ -14,10 +14,11 @@ import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
 import { SearchController } from './search/search.controller';
 import { SearchService } from './search/search.service';
+import { AuditController } from './audit/audit.controller';
 
 @Module({
   imports: [HouseModule, LandlordModule, UnitModule, TenantModule, MeterReadingModule, PaymentModule, CommonModule, UserModule, AuthModule],
-  controllers: [AppController, PingController, SearchController],
+  controllers: [AppController, PingController, SearchController, AuditController],
   providers: [AppService, HashidService, SearchService],
 })
 export class AppModule {}

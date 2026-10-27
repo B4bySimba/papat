@@ -1,5 +1,6 @@
 "use client";
 
+import { useAccess } from "@/components/AccessProvider";
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -97,6 +98,7 @@ export default function UnitCards({
   };
 
   const [form, setForm] = useState(initialForm);
+  const { can } = useAccess();
   const [terminateSheetOpen, setTerminateSheetOpen] = useState(false);
   const [ledgerOpen, setLedgerOpen] = useState(false);
 
@@ -235,7 +237,7 @@ export default function UnitCards({
             </SheetDescription>
           </SheetHeader>
 
-          {!editMode && (
+          {!editMode && can("tenants.edit", houseId) && (
             <div className="flex justify-end mb-4">
               <Button
                 variant="outline"
@@ -406,7 +408,7 @@ export default function UnitCards({
             </SheetDescription>
           </SheetHeader>
 
-          <Button
+          {can("rates.change", houseId) && <Button
             variant="outline"
             size="sm"
             className="self-start mb-4 cursor-pointer"
@@ -417,7 +419,7 @@ export default function UnitCards({
           >
             <Edit className="w-4 h-4 mr-2" />
             Change rent or charges
-          </Button>
+          </Button>}
 
           {/* <div className="text-lg font-semibold text-foreground mb-6">
             Total:{" "}
@@ -518,7 +520,7 @@ export default function UnitCards({
               </div>
             </div>
 
-            <div>
+            {can("payments.view", houseId) && <div>
               <h3 className="text-base font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
                 Arrears Brought Forward on Entry
               </h3>
@@ -530,14 +532,14 @@ export default function UnitCards({
                       <span className="text-foreground font-medium">
                         KES {arrearsValue.toLocaleString()}
                       </span>
-                      <Button
+                      {can("arrears.edit", houseId) && <Button
                         size="icon"
                         variant="ghost"
                         className="w-6 h-6"
                         onClick={() => setEditingArrears(true)}
                       >
                         <Edit className="w-4 h-4" />
-                      </Button>
+                      </Button>}
                     </div>
                   </div>
                 ) : (
@@ -602,7 +604,7 @@ export default function UnitCards({
                   </div>
                 )}
               </div>
-            </div>
+            </div>}
           </div>
         </SheetContent>
       </Sheet>
@@ -633,14 +635,14 @@ export default function UnitCards({
           </SheetHeader>
 
           <div className="flex flex-col gap-3">
-            <Button
+            {can("payments.view", houseId) && <Button
               variant="default"
               onClick={() => setLedgerOpen(true)}
               className="justify-start cursor-pointer"
             >
               <ClipboardList className="w-4 h-4 mr-2" />
               View Ledger
-            </Button>
+            </Button>}
 
             <Button
               variant="outline"
@@ -651,16 +653,16 @@ export default function UnitCards({
               Send Message
             </Button>
 
-            <Button
+            {can("tenants.move", houseId) && <Button
               variant="outline"
               onClick={() => setMoveSheetOpen(true)}
               className="justify-start cursor-pointer"
             >
               <MoveRight className="w-4 h-4 mr-2" />
               Move Tenant to Another Unit
-            </Button>
+            </Button>}
 
-            <Button
+            {can("tenants.edit", houseId) && <Button
               variant="secondary"
               onClick={() => {
                 setEditMode(true);
@@ -670,18 +672,18 @@ export default function UnitCards({
             >
               <Edit className="w-4 h-4 mr-2" />
               Edit Tenant Details
-            </Button>
+            </Button>}
 
-            <Button
+            {can("tenants.vacate", houseId) && <Button
               variant="destructive"
               onClick={() => setTerminateSheetOpen(true)}
               className="justify-start cursor-pointer"
             >
               <Trash2 className="w-4 h-4 mr-2" />
               Terminate Lease
-            </Button>
+            </Button>}
 
-            <AlertDialog
+            {can("tenants.delete", houseId) && <AlertDialog
               open={deleteConfirmOpen}
               onOpenChange={setDeleteConfirmOpen}
             >
@@ -765,8 +767,8 @@ export default function UnitCards({
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
-            </AlertDialog>
-            <Button
+            </AlertDialog>}
+            {can("pastTenants.view", houseId) && <Button
               variant="outline"
               className="text-sm min-w-[150px] bg-transparent cursor-pointer justify-start"
               onClick={() => {
@@ -775,7 +777,7 @@ export default function UnitCards({
             >
               <Eye className="mr-1 h-4 w-4" />
               View Past Tenants
-            </Button>
+            </Button>}
           </div>
         </SheetContent>
       </Sheet>

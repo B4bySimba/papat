@@ -1,4 +1,5 @@
 "use client";
+import { useAccess } from "@/components/AccessProvider";
 import { useState } from "react";
 import { SkeletonPage } from "@/components/skeleton/page";
 import { MeterReadingsTable } from "./MeterReadingsTable";
@@ -12,6 +13,7 @@ import { useServerTable } from "@/hooks/use-server-table";
 export default function MeterReadingsPage() {
   const table = useServerTable<MeterReading>("/api/meterReading/get");
   const [showAddModal, setShowAddModal] = useState(false);
+  const { can } = useAccess();
 
   const handleDelete = async (id: string) => {
     try {
@@ -104,13 +106,13 @@ export default function MeterReadingsPage() {
     <div className="w-full">
       <div className="mb-5 flex items-center justify-between gap-3 sm:mb-8">
         <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Meter Readings</h1>
-        <Button
+        {can("readings.add") && <Button
           onClick={() => setShowAddModal(true)}
           className="ml-auto shrink-0 bg-purple-600 hover:bg-purple-700 text-white border-purple-600 hover:border-purple-700 cursor-pointer shadow-sm shadow-purple-600/20"
         >
           <Plus strokeWidth={3} />
           Add Meter Reading
-        </Button>
+        </Button>}
       </div>
       <MeterReadingsTable
         table={table}

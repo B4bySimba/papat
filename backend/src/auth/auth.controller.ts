@@ -1,53 +1,49 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Res } from '@nestjs/common';
-import { AuthService } from './auth.service';
-import { LoginDto } from './dto/login.dto';
+import { Body, Controller, Get, Post, Res } from '@nestjs/common';
 import { Response } from 'express';
+import { logAs } from 'src/audit/audit.interceptor';
+import { currentAccess } from './access';
+import { AuthService, SESSION_HOURS } from './auth.service';
+import { Need, Public } from './need.decorator';
 
+const setSession = (res: Response, token: string) =>
+  res.cookie('token', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: SESSION_HOURS * 60 * 60 * 1000,
+  });
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Public()
   @Post('login')
-  async login(
-    @Body() body: LoginDto,
-    @Res({ passthrough: true }) res: Response,
-  ) {
-    const loginResult = await this.authService.validateUser(
-      body.email,
-      body.password,
-    );
-
-    res.cookie('token', loginResult.token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
-    return {
-      message: loginResult.message,
-      user: loginResult.user,
-    };
+  async login(@Body() body: { username?: unknown; password?: unknown }, @Res({ passthrough: true }) res: Response) {
+    const { token, mustChangePassword } = await this.authService.login(body?.username, body?.password);
+    setSession(res, token);
+    return { message: 'Login successful', mustChangePassword };
   }
 
-  // @Get()
-  // findAll() {
-  //   return this.authService.findAll();
-  // }
+  @Need('self')
+  @Get('me')
+  me() {
+    return this.authService.me(currentAccess()!);
+  }
 
-  // @Get(':id')
-  // findOne(@Param('id') id: string) {
-  //   return this.authService.findOne(+id);
-  // }
+  @Need('self')
+  @Post('password')
+  async password(@Body() body: { current?: unknown; next?: unknown }, @Res({ passthrough: true }) res: Response) {
+    setSession(res, await this.authService.changePassword(currentAccess()!, body?.current, body?.next));
+    return { message: 'Password changed.' };
+  }
 
-  // @Patch(':id')
-  // update(@Param('id') id: string, @Body() updateAuthDto: UpdateAuthDto) {
-  //   return this.authService.update(+id, updateAuthDto);
-  // }
-
-  // @Delete(':id')
-  // remove(@Param('id') id: string) {
-  //   return this.authService.remove(+id);
-  // }
+  @Need('self')
+  @Post('logout')
+  logout(@Res({ passthrough: true }) res: Response) {
+    logAs('logout');
+    res.clearCookie('token', { path: '/' });
+    return { message: 'Logged out.' };
+  }
 }

@@ -1,3 +1,4 @@
+import { backendFetch } from "@/lib/backend";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
@@ -9,7 +10,7 @@ export async function GET(req: NextRequest) {
   if (houseId) url.searchParams.append("houseId", houseId);
 
   try {
-    const backendRes = await fetch(url.toString(), { cache: "no-store" });
+    const backendRes = await backendFetch(url.toString(), { cache: "no-store" });
 
     if (!backendRes.ok) {
       return NextResponse.json(

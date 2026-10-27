@@ -5,6 +5,13 @@ import { HashidPipe } from 'src/common/hashid/hashid.pipe';
 import { HashidService } from 'src/common/hashid/hashid.service';
 import { MONTH_NAMES } from './ledger.util';
 import { ListQuery } from 'src/common/list-query';
+import { Need } from 'src/auth/need.decorator';
+import { canAt, currentAccess } from 'src/auth/access';
+import { only } from 'src/common/only';
+
+const PAYMENT_FIELDS = ['amount', 'paymentMethod', 'reference', 'date', 'comment'] as const;
+/** Past tenants' rows count only where the user may see past tenants. */
+const withPast = (flag: string | undefined, houseId: number) => flag === 'true' && canAt('pastTenants.view', houseId);
 
 @Controller('payment')
 export class PaymentController {
@@ -16,20 +23,27 @@ export class PaymentController {
   //frontend
   // Wired to V2 (billingPeriod-driven engine). V1 methods remain on PaymentService, unused by routes.
   @Get('summary')
+  @Need('payments.view')
   async getManagerSummary(@Query('includePastTenantsData') includePastTenantsData?: string) {
-    return this.paymentService.getManagerLevelSummaryV2(includePastTenantsData === 'true');
+    const access = currentAccess();
+    return this.paymentService.getManagerLevelSummaryV2(
+      includePastTenantsData === 'true',
+      access?.houses('payments.view'),
+      access?.houses('pastTenants.view'),
+    );
   }
 
   @Get(':houseId/summary')
+  @Need('payments.view', 'house:params.houseId')
   async getHouseSummary(
     @Param('houseId', HashidPipe) houseId: number,
     @Query('includePastTenantsData') includePastTenantsData?: string,
   ) {
-    console.log(houseId);
-    return this.paymentService.getHouseLevelSummaryV2(houseId, includePastTenantsData === 'true');
+    return this.paymentService.getHouseLevelSummaryV2(houseId, withPast(includePastTenantsData, houseId));
   }
 
   @Get(':houseId/summary/units')
+  @Need('payments.view', 'house:params.houseId')
   async getHouseMonthUnits(
     @Param('houseId', HashidPipe) houseId: number,
     @Query('year', ParseIntPipe) year: number,
@@ -39,24 +53,28 @@ export class PaymentController {
     if (!MONTH_NAMES.includes(month)) {
       throw new HttpException('Unknown month.', HttpStatus.BAD_REQUEST);
     }
-    return this.paymentService.getHouseMonthUnitsV2(houseId, year, month, includePastTenantsData === 'true');
+    return this.paymentService.getHouseMonthUnitsV2(houseId, year, month, withPast(includePastTenantsData, houseId));
   }
 
   @Get('future-dated')
+  @Need('payments.view')
   futureDated(@Query('leaseCode') leaseCode?: string) {
     return this.paymentService.futureDated(leaseCode);
   }
 
   @Get('le/:leaseCode/summary')
+  @Need('payments.view', 'leaseCode:params.leaseCode')
   async getTenantSummary(@Param('leaseCode') leaseCode: string) {
     return this.paymentService.getTenantLevelSummaryV2(leaseCode);
   }
 
   @Post('createPayment')
-  async createPayment(@Body() createPaymentDto: any) {
-    console.log(createPaymentDto);
+  @Need('payments.add', 'leaseCode:body.lease.connect.code')
+  async createPayment(@Body() body: any) {
     try {
-      if (!createPaymentDto.lease || !createPaymentDto.lease.connect?.code) {
+      const { lease, house, unit, ...fields } = body ?? {};
+      const createPaymentDto: any = { ...only(fields, PAYMENT_FIELDS), lease };
+      if (typeof createPaymentDto.lease?.connect?.code !== 'string' || !createPaymentDto.lease.connect.code) {
         throw new HttpException(
           'Lease code is required.',
           HttpStatus.BAD_REQUEST,
@@ -73,6 +91,7 @@ export class PaymentController {
       }
 
       createPaymentDto.date = parsedDate;
+      createPaymentDto.lease = { connect: { code: createPaymentDto.lease.connect.code } };
 
       const payment = await this.paymentService.createPayment(createPaymentDto);
 
@@ -113,16 +132,19 @@ export class PaymentController {
   }
 
   @Get('getAll')
+  @Need('payments.view')
   getAll(@Query() query: ListQuery) {
     return this.paymentService.getAll(query);
   }
 
   @Get('getAll/filters')
+  @Need('payments.view')
   getAllFilters() {
     return this.paymentService.getAllFilters();
   }
 
   @Get('recent')
+  @Need('payments.view')
   recent() {
     return this.paymentService.recent();
   }
@@ -133,11 +155,13 @@ export class PaymentController {
   }
 
   @Get('byHouseId/:houseId')
+  @Need('payments.view', 'house:params.houseId')
   findAll2(@Param('houseId', HashidPipe) houseId: string) {
     return this.paymentService.findAll2(+houseId);
   }
 
   @Get('get/tenant/:leaseCode')
+  @Need('payments.view', 'leaseCode:params.leaseCode')
   findAll3(@Param('leaseCode') leaseCode: string) {
     return this.paymentService.findAll3(leaseCode);
   }
@@ -147,12 +171,13 @@ export class PaymentController {
     return this.paymentService.findOne(+id);
   }
   @Patch('editPayment/:id')
+  @Need('payments.edit', 'payment:params.id')
   async update(
     @Param('id', HashidPipe) id: string,
     @Body() updatePaymentDto: Prisma.paymentUpdateInput,
   ) {
     try {
-      const updated = await this.paymentService.update(+id, updatePaymentDto);
+      const updated = await this.paymentService.update(+id, only(updatePaymentDto, PAYMENT_FIELDS));
 
       if (!updated) {
         throw new HttpException(
@@ -179,6 +204,7 @@ export class PaymentController {
   }
 
   @Delete('deleteTransaction/:id')
+  @Need('payments.delete', 'payment:params.id')
   remove(@Param('id', HashidPipe) id: string) {
     return this.paymentService.remove(+id);
   }
@@ -283,6 +309,7 @@ export class PaymentController {
 
   //reports
   @Get('report/yearly/:houseId')
+  @Need('reports.view', 'house:params.houseId')
   yearlyReport(
     @Param('houseId', HashidPipe) houseId: number,
     @Query('year') year: string,
@@ -295,18 +322,19 @@ export class PaymentController {
       year,
       startMonth,
       endMonth,
-      includePastTenantsData === 'true',
+      withPast(includePastTenantsData, houseId),
     );
   }
 
   @Get('report/monthly/:houseId')
+  @Need('reports.view', 'house:params.houseId')
   monthlyReport(
     @Param('houseId', HashidPipe) houseId: number,
     @Query('year', ParseIntPipe) year: number,
     @Query('month', ParseIntPipe) month: number,
     @Query('includePastTenantsData') includePastTenantsData?: string,
   ) {
-    const includePast = includePastTenantsData === 'true';
+    const includePast = withPast(includePastTenantsData, houseId);
     return this.paymentService.monthlyReportV2(houseId, month, year, includePast);
   }
 }

@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 import { generateCSRFToken } from "@/lib/csrf";
 
 export function LoginForm({
@@ -15,11 +14,9 @@ export function LoginForm({
   ...props
 }: React.ComponentProps<"form">) {
   const [showPassword, setShowPassword] = useState(false);
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
-
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,7 +34,7 @@ export function LoginForm({
           "Content-Type": "application/json",
           "x-csrf-token": csrfToken,
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username, password }),
         credentials: "include",
       });
 
@@ -48,10 +45,8 @@ export function LoginForm({
         return;
       }
 
-      // Save token or redirect
-      toast.success("Login successful");
-      console.log("Login success:", data);
-      router.push(`/`);
+      // A full load, so the app starts with this user's rights.
+      window.location.href = data.mustChangePassword ? "/change-password" : "/";
     } catch (error) {
       toast.error("An unexpected error occurred");
     } finally {
@@ -68,35 +63,28 @@ export function LoginForm({
       <div className="flex flex-col items-center gap-2 text-center">
         <h1 className="text-2xl font-bold">Login to your account</h1>
         <p className="text-muted-foreground text-sm text-balance">
-          Enter your email below to login to your account
+          Enter your username and password
         </p>
       </div>
       <div className="grid gap-6">
         <div className="grid gap-3">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="username">Username</Label>
           <Input
-            id="email"
-            type="email"
-            placeholder="m@example.com"
+            id="username"
+            autoComplete="username"
+            autoCapitalize="none"
             required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
           />
         </div>
         <div className="grid gap-3">
-          <div className="flex items-center">
-            <Label htmlFor="password">Password</Label>
-            <a
-              href="#"
-              className="ml-auto text-sm underline-offset-4 hover:underline"
-            >
-              Forgot your password?
-            </a>
-          </div>
+          <Label htmlFor="password">Password</Label>
           <div className="relative">
             <Input
               id="password"
               type={showPassword ? "text" : "password"}
+              autoComplete="current-password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -117,7 +105,9 @@ export function LoginForm({
         <Button type="submit" className="w-full" disabled={isLoading}>
           {isLoading ? "Logging in..." : "Login"}
         </Button>
-        
+        <p className="text-muted-foreground text-center text-sm">
+          Forgot your password? Ask an admin to reset it.
+        </p>
       </div>
       
     </form>

@@ -14,7 +14,11 @@ export class HashidService {
   }
 
   decode(hash: string): number {
-    const [decoded] = this.hashids.decode(hash);
-    return Number(decoded) ?? null;
+    try {
+      const [decoded] = this.hashids.decode(hash);
+      return Number(decoded);
+    } catch {
+      return NaN;
+    }
   }
 }

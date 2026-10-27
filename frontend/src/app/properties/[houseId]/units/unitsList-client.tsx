@@ -1,4 +1,5 @@
 "use client";
+import { useAccess } from "@/components/AccessProvider";
 import { useState, useEffect, useCallback } from "react";
 import { SkeletonPage } from "@/components/skeleton/page";
 import { UnitsList } from "@/lib/unitsSchema";
@@ -12,7 +13,8 @@ import { toast } from "sonner";
 
 export default function UnitsListPage() {
   const router = useRouter();
-const { houseId } = useParams();
+  const { houseId } = useParams<{ houseId: string }>();
+  const { can } = useAccess();
   const [units, setUnits] = useState<UnitsList[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -71,13 +73,13 @@ const { houseId } = useParams();
     <div className="w-full">
       <div className="mb-5 flex items-center justify-between gap-3 sm:mb-8">
         <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Units</h1>
-        <Button
+        {can("units.add", houseId) && <Button
           onClick={() => setShowAddForm(true)}
           className="ml-auto shrink-0 bg-purple-600 hover:bg-purple-700 text-white border-purple-600 hover:border-purple-700 cursor-pointer shadow-sm shadow-purple-600/20"
         >
           <Plus strokeWidth={3} />
           Add Unit
-        </Button>
+        </Button>}
       </div>
       <UnitsTable
         data={units

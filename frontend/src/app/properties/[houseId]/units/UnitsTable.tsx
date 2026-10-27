@@ -1,4 +1,5 @@
 "use client";
+import { useAccess } from "@/components/AccessProvider";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/tables/DataTable";
@@ -22,7 +23,8 @@ type Props = {
 
 export function UnitsTable({ data, onDelete, refreshData }: Props) {
   const searchParams = useSearchParams();
-  const { houseId } = useParams();
+  const { houseId } = useParams<{ houseId: string }>();
+  const { can } = useAccess();
   const router = useRouter();
 
   const [selectedUnit, setSelectedUnit] = useState<UnitsList | null>(null);
@@ -153,16 +155,16 @@ export function UnitsTable({ data, onDelete, refreshData }: Props) {
         data={filteredData}
         columns={columns}
         filters={filters}
-        onDelete={onDelete}
-        onRowClick={handleRowClick}
-        onEditClick={(unit) => {
+        onDelete={can("units.delete", houseId) ? onDelete : undefined}
+        onRowClick={can("tenants.view", houseId) ? handleRowClick : undefined}
+        onEditClick={can("units.edit", houseId) ? (unit) => {
           if (!unit.state) {
             setSelectedUnit(unit);
             setSheetOpen(true);
           } else {
             toast.error("Only vacant units can be edited.");
           }
-        }}
+        } : undefined}
         renderRowDetail={(unit) => (
           <div className="text-sm space-y-3">
             <p>

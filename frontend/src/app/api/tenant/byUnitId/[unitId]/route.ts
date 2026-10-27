@@ -1,3 +1,4 @@
+import { backendFetch } from "@/lib/backend";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
@@ -7,7 +8,7 @@ export async function GET(
   const { unitId } = await params;
 
   try {
-    const backendRes = await fetch(
+    const backendRes = await backendFetch(
       `${process.env.BACKEND_API_URL}/tenant/byUnitId/${unitId}`
     );
 

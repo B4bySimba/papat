@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable } from '@nestjs/comm
 import { Prisma } from 'generated/prisma/client';
 import { HashidService } from 'src/common/hashid/hashid.service';
 import prisma from 'lib/db';
+import { houseSql, inHouses } from 'src/auth/access';
 import { formatMonth, parseMonth } from 'src/payment/ledger.util';
 import {
   ListQuery,
@@ -83,6 +84,8 @@ export class MeterReadingService {
       conditions.push(
         idEquals(Prisma.sql`"unitId"`, this.hashidservice.decode(q.unitId)),
       );
+    const scope = houseSql(Prisma.sql`"houseId"`, 'readings.view');
+    if (scope) conditions.push(scope);
 
     // Dates are stored as UTC and shown in Nairobi time (main.ts refuses any other zone).
     const matching = Prisma.sql`SELECT * FROM (
@@ -127,12 +130,12 @@ export class MeterReadingService {
   async getAllFilters() {
     const [houses, units] = await Promise.all([
       prisma.house.findMany({
-        where: { MeterReading: { some: {} } },
+        where: { MeterReading: { some: {} }, ...inHouses('readings.view', 'id') },
         select: { id: true, name: true },
         orderBy: { name: 'asc' },
       }),
       prisma.unit.findMany({
-        where: { meterReading: { some: {} } },
+        where: { meterReading: { some: {} }, ...inHouses('readings.view') },
         select: { id: true, number: true },
         orderBy: { number: 'asc' },
       }),

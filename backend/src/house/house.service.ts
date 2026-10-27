@@ -3,6 +3,7 @@ import { Prisma } from 'generated/prisma/client';
 import { HashidService } from 'src/common/hashid/hashid.service';
 import { termsAt } from 'src/payment/ledger.util';
 import prisma from 'lib/db';
+import { inHouses } from 'src/auth/access';
 
 
 @Injectable()
@@ -42,6 +43,7 @@ export class HouseService {
 
   async getNameAndIds() {
     const houses = await prisma.house.findMany({
+      where: inHouses('house.view', 'id'),
       select: {
         id: true,
         name: true,
@@ -160,7 +162,7 @@ export class HouseService {
   }
 
   //frontend
-  async createProperty(createHouseDto: any) {
+  async createProperty(createHouseDto: any, creator?: { userId: number; rights: string[] }) {
     const {
       name,
       lr_number,
@@ -234,9 +236,11 @@ export class HouseService {
         );
       }
 
+      if (creator) data.access = { create: { rights: creator.rights, user: { connect: { id: creator.userId } } } };
       const createdHouse = await prisma.house.create({ data });
       return createdHouse;
     } catch (error) {
+      if (error instanceof HttpException) throw error;
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
           throw new ConflictException(
@@ -259,6 +263,7 @@ export class HouseService {
 
     const properties = await prisma.house.findMany({
       where: {
+        ...inHouses('payments.add', 'id'),
         name: {
           contains: trimmedQuery,
           mode: 'insensitive',
@@ -287,6 +292,7 @@ export class HouseService {
         water_bill: {
           gt: 0,
         },
+        ...inHouses('readings.add', 'id'),
       },
       orderBy: { name: 'asc' },
       take: 10,
@@ -300,6 +306,7 @@ export class HouseService {
 
   async getHousesWithUnitsAndTenants() {
     const houses = await prisma.house.findMany({
+      where: inHouses('reports.view', 'id'),
       select: {
         id: true,
         name: true,
@@ -350,6 +357,7 @@ export class HouseService {
 
   async getHousesWithUnits() {
     const houses = await prisma.house.findMany({
+      where: inHouses('reports.view', 'id'),
       select: {
         id: true,
         name: true,

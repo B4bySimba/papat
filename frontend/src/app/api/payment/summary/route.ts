@@ -1,3 +1,4 @@
+import { backendFetch } from "@/lib/backend";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
@@ -10,7 +11,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Missing houseId" }, { status: 400 });
     }
 
-    const backendRes = await fetch(
+    const backendRes = await backendFetch(
       `${process.env.BACKEND_API_URL}/payment/${houseId}/summary`
     );
 

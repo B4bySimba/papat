@@ -10,6 +10,7 @@ import { HashidService } from 'src/common/hashid/hashid.service';
 import { LedgerService, previewable } from 'src/payment/ledger.service';
 import { endOfLocalDay, formatMonth, houseBase, MONTH_NAMES, rateFields, startOfMonth, termsAt } from 'src/payment/ledger.util';
 import prisma from 'lib/db';
+import { canAt, inHouses } from 'src/auth/access';
 
 @Injectable()
 export class TenantService {
@@ -23,6 +24,7 @@ export class TenantService {
     const tenants = await prisma.tenant.findMany({
       where: {
         AND: { OR: [{ state: 'ACTIVE' }, { state: 'FORMER', lease: { some: { movedTo: { is: null } } } }] },
+        unit: inHouses('payments.add'),
         OR: [
           { name: { contains: query, mode: 'insensitive' } },
           { name: { contains: query, mode: 'insensitive' } },
@@ -551,7 +553,7 @@ export class TenantService {
   /** Past tenants, newest move-out first: one unit's, or everyone who left the company's units (not those who moved units). */
   async past(Id?: number) {
     const terminatedLeases = await prisma.lease.findMany({
-      where: Id === undefined ? { status: 'TERMINATED', movedTo: { is: null } } : { unitId: Id, status: 'TERMINATED' },
+      where: Id === undefined ? { status: 'TERMINATED', movedTo: { is: null }, ...inHouses('pastTenants.view') } : { unitId: Id, status: 'TERMINATED' },
       orderBy: { terminationDate: 'desc' },
       select: {
         tenant: {
@@ -594,6 +596,7 @@ export class TenantService {
             year: 'numeric',
           })
         : 'No date',
+      ...(!canAt('payments.view', lease.houseId) && { deposit: null, balance: null }),
     }));
   }
 

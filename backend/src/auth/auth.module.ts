@@ -1,20 +1,24 @@
 import { Module } from '@nestjs/common';
-import { AuthService } from './auth.service';
-import { AuthController } from './auth.controller';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
-import { PassportModule } from '@nestjs/passport';
-import { JwtStrategy } from './jwt.strategy';
+import { AuditInterceptor } from 'src/audit/audit.interceptor';
+import { AuthService, SESSION_HOURS } from './auth.service';
+import { AuthController } from './auth.controller';
+import { AuthGuard } from './auth.guard';
 
 @Module({
   imports: [
-    PassportModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET,
-      signOptions: { expiresIn: '1d' },
+      signOptions: { expiresIn: `${SESSION_HOURS}h` },
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [
+    AuthService,
+    { provide: APP_GUARD, useClass: AuthGuard },
+    { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
+  ],
   exports: [AuthService],
 })
 export class AuthModule {}

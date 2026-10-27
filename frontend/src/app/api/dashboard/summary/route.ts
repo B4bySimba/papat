@@ -1,3 +1,4 @@
+import { backendFetch } from "@/lib/backend";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
@@ -5,7 +6,7 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const year = url.searchParams.get("year");
 
-    const backendRes = await fetch(
+    const backendRes = await backendFetch(
       `${process.env.BACKEND_API_URL}/payment/summary`
     );
 

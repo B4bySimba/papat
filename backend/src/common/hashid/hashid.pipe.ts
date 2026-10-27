@@ -7,8 +7,8 @@ export class HashidPipe implements PipeTransform {
 
   transform(value: string): number {
     const id = this.hashidService.decode(value);
-    if (id === null) {
-      throw new BadRequestException('Invalid house ID');
+    if (!Number.isInteger(id)) {
+      throw new BadRequestException('Invalid ID');
     }
     return id;
   }

@@ -1,3 +1,4 @@
+import { backendFetch } from "@/lib/backend";
 import { NextResponse } from "next/server";
 
 // Define the type for params
@@ -53,7 +54,7 @@ export async function GET(req: Request, context: RouteContext) {
 
     console.log("Fetching from backend:", backendUrl);
 
-    const backendRes = await fetch(backendUrl, {
+    const backendRes = await backendFetch(backendUrl, {
       headers: {
         "Content-Type": "application/json",
       },
