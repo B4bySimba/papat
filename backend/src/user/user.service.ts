@@ -4,7 +4,7 @@ import * as bcrypt from 'bcrypt';
 import { Prisma, Role } from 'generated/prisma/client';
 import prisma from 'lib/db';
 import { logAs } from 'src/audit/audit.interceptor';
-import { Access, requestContext } from 'src/auth/access';
+import { Access, currentAccess, requestContext } from 'src/auth/access';
 import { globalRights, NEEDS, ON_TICK, RIGHTS, rightLabel, withNeeds } from 'src/auth/rights';
 import { HashidService } from 'src/common/hashid/hashid.service';
 
@@ -21,6 +21,7 @@ export class UserService {
 
   async list() {
     const users = await prisma.user.findMany({
+      where: this.hidesRoot() ? { role: { not: Role.ROOT } } : {},
       orderBy: [{ role: 'asc' }, { username: 'asc' }],
       include: { _count: { select: { houses: true } } },
     });
@@ -32,7 +33,7 @@ export class UserService {
       where: { id },
       include: { houses: { include: { house: { select: { name: true } } }, orderBy: { house: { name: 'asc' } } } },
     });
-    if (!user) throw new NotFoundException('No such user.');
+    if (!user || (user.role === Role.ROOT && this.hidesRoot())) throw new NotFoundException('No such user.');
     return {
       ...this.summary(user, user.houses.length),
       rights: globalRights(user.rights),
@@ -146,6 +147,11 @@ export class UserService {
     logAs('users.unlock', (await this.target(id)).username);
     await prisma.user.update({ where: { id }, data: { failedLogins: 0, lockedUntil: null } });
     return this.one(id);
+  }
+
+  /** Root's account is shown to root alone. */
+  private hidesRoot() {
+    return currentAccess()?.isRoot === false;
   }
 
   /** The account being acted on. Nobody acts on root; admins act on agents only. */
